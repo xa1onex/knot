@@ -763,9 +763,11 @@ install_device() {
   local def_name
   def_name="$(hostname -s 2>/dev/null || hostname || echo device)"
   ask KNOT_CONTROL_URL "Main Node URL (https://node.example.com)" "${KNOT_CONTROL_URL:-}"
+  KNOT_CONTROL_URL="$(printf '%s' "$KNOT_CONTROL_URL" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
   [ -n "$KNOT_CONTROL_URL" ] || die "Main Node URL is required"
   KNOT_CONTROL_URL="${KNOT_CONTROL_URL%/}"
   ask KNOT_REGISTRATION_TOKEN "Join token (from the panel → Devices)" "${KNOT_REGISTRATION_TOKEN:-}"
+  KNOT_REGISTRATION_TOKEN="$(printf '%s' "$KNOT_REGISTRATION_TOKEN" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
   [ -n "$KNOT_REGISTRATION_TOKEN" ] || die "Join token is required"
   ask KNOT_DEVICE_NAME "Name for this device" "${KNOT_DEVICE_NAME:-$def_name}"
   ask KNOT_STORAGE_DIR "Folder for files on this machine" "${KNOT_STORAGE_DIR:-$HOME/knot-storage}"

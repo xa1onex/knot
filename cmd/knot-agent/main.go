@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -51,6 +52,9 @@ func main() {
 	shareDir := flag.String("share-dir", xfer.DefaultShareDir(), "inbox/outbox root (allowlisted)")
 	storageDir := flag.String("storage-dir", storfs.DefaultDir(), "knot-storage root (allowlisted)")
 	flag.Parse()
+	*controlURL = strings.TrimSpace(*controlURL)
+	*regToken = strings.TrimSpace(*regToken)
+	*name = strings.TrimSpace(*name)
 
 	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
 		log.Fatal(err)
