@@ -1,0 +1,1268 @@
+openapi: 3.0.3
+info:
+  title: Node Public API
+  description: |
+    Stage 5.0 client contract. Web, CLI (`knot`), and MCP (`knot-mcp`)
+    use this API. Bytes move via Transfers → agents; clients do not speak Direct/Relay themselves.
+  version: 0.5.0
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local knotd
+tags:
+  - name: Auth
+  - name: Devices
+  - name: Credentials
+  - name: Storage
+  - name: Transfers
+  - name: Services
+  - name: Logs
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: OK
+  /readyz:
+    get:
+      summary: Readiness (database ping)
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Database not ready
+  /metrics:
+    get:
+      summary: JSON counters (http_total, http_denied, uptime_sec)
+      responses:
+        '200':
+          description: OK
+  /v1/ops/backup:
+    post:
+      tags: [Auth]
+      summary: SQLite Control Plane backup (account.admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Backup written under <dbdir>/backups/
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Logged out
+  /v1/auth/me:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identity'
+  /v1/devices:
+    get:
+      tags: [Devices]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+  /v1/devices/{id}:
+    get:
+      tags: [Devices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+  /v1/compute/devices:
+    get:
+      tags: [Devices]
+      summary: Compute Registry snapshots (compute.read)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Last telemetry per node
+	/v1/compute/devices/{device_id}:
+    get:
+      tags: [Devices]
+      summary: Compute snapshot for one node
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Snapshot; gpu is null when undetectable; labels merge user + derived
+  /v1/compute/devices/{device_id}/labels:
+    put:
+      tags: [Devices]
+      summary: Replace user labels on a node (compute.write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                labels:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        '200':
+          description: Updated compute record
+  /v1/compute/jobs:
+    get:
+      tags: [Compute]
+      summary: List one-shot compute jobs (compute.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Job list
+    post:
+      tags: [Compute]
+      summary: Start a job (compute.write). Omit device_id to let the scheduler pick a node.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                device_id: { type: string, description: Optional pin; omit for scheduler placement }
+                image: { type: string }
+                command:
+                  type: array
+                  items: { type: string }
+                env:
+                  type: object
+                  additionalProperties: { type: string }
+                resources:
+                  type: object
+                  properties:
+                    cpu: { type: number }
+                    memory_mb: { type: integer }
+                    gpu:
+                      oneOf:
+                        - { type: integer }
+                        - { type: string, enum: [required] }
+                    pids: { type: integer }
+                    disk_mb: { type: integer }
+                timeout_seconds: { type: integer }
+                input_path: { type: string }
+                output_path: { type: string }
+                require:
+                  type: object
+                  additionalProperties: { type: string }
+                prefer:
+                  type: object
+                  additionalProperties: { type: string }
+                retry_max: { type: integer }
+      responses:
+        '201':
+          description: Job created (queued, waiting_for_resource, assigned, running, or rejected)
+  /v1/compute/jobs/{id}:
+    get:
+      tags: [Compute]
+      summary: Get a compute job
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Job; env values are redacted
+  /v1/compute/jobs/{id}/cancel:
+    post:
+      tags: [Compute]
+      summary: Cancel a running job (compute.write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Cancel requested
+  /v1/compute/jobs/{id}/logs:
+    get:
+      tags: [Compute]
+      summary: Sanitized job logs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Log lines
+  /v1/compute/jobs/{id}/artifacts:
+    get:
+      tags: [Compute]
+      summary: Committed job artifacts (Storage objects + job link)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Artifact list with sha256, file_id, path; empty until artifacts_committed
+  /v1/environments:
+    get:
+      tags: [Deploy]
+      summary: List environments (deploy.read). Secret values are never included.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: project
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Environment list with vars and secret references
+    post:
+      tags: [Deploy]
+      summary: Create environment (deploy.write)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Environment created
+  /v1/secrets:
+    get:
+      tags: [Deploy]
+      summary: List secret metadata (secrets.read). Values are never returned.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: id, name, version only
+    post:
+      tags: [Deploy]
+      summary: Create encrypted secret (secrets.write). Value is write-only.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Metadata only
+  /v1/sources:
+    get:
+      tags: [Deploy]
+      summary: List Git application sources (source.read). Tokens are never included.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Source list
+    post:
+      tags: [Deploy]
+      summary: Create a Git source (source.write). credential_secret_id is a vault reference.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Source created
+  /v1/sources/{id}:
+    get:
+      tags: [Deploy]
+      summary: Get a Git source (source.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Source
+  /v1/builds:
+    get:
+      tags: [Deploy]
+      summary: List Dockerfile builds (build.read)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Build list
+    post:
+      tags: [Deploy]
+      summary: Start a pinned-node Dockerfile build (build.write). Does not deploy.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Build queued
+  /v1/builds/{id}:
+    get:
+      tags: [Deploy]
+      summary: Get build status (build.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Build
+  /v1/builds/{id}/logs:
+    get:
+      tags: [Deploy]
+      summary: Sanitized build logs (build.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Log lines
+  /v1/releases:
+    get:
+      tags: [Deploy]
+      summary: List releases (release.read). History per service; current is a field.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Release list
+    post:
+      tags: [Deploy]
+      summary: Create a release from an image (release.write). Pins env + secret versions. Does not deploy.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Release created
+  /v1/releases/{id}:
+    get:
+      tags: [Deploy]
+      summary: Get a release (release.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Release
+  /v1/releases/{id}/deploy:
+    post:
+      tags: [Deploy]
+      summary: Deploy candidate + health gate (release.write). Does not switch Edge traffic.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Release after health gate (status active or failed)
+  /v1/releases/{id}/rollback:
+    post:
+      tags: [Deploy]
+      summary: Restore the previous verified release (release.activate)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Rolled-back release
+  /v1/releases/{id}/logs:
+    get:
+      tags: [Deploy]
+      summary: Release logs linked to deploy/build/job (release.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Log lines
+  /v1/devices/registration-tokens:
+    post:
+      tags: [Devices]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name_hint: { type: string }
+                ttl_hours: { type: integer }
+      responses:
+        '201':
+          description: Registration token
+  /v1/overview:
+    get:
+      tags: [Devices]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+  /v1/credentials:
+    get:
+      tags: [Credentials]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Credential list
+    post:
+      tags: [Credentials]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+                ttl_days: { type: integer }
+      responses:
+        '201':
+          description: Created (includes raw token once)
+  /v1/storage/list:
+    get:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: path
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StorageEntry'
+  /v1/storage/stat:
+    get:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageStat'
+  /v1/storage/mkdir:
+    post:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id, path]
+              properties:
+                device_id: { type: string }
+                path: { type: string }
+      responses:
+        '201':
+          description: Created
+  /v1/storage/move:
+    post:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathPair'
+      responses:
+        '200':
+          description: Moved
+  /v1/storage/copy:
+    post:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathPair'
+      responses:
+        '200':
+          description: Copied
+  /v1/storage/transfer:
+    post:
+      tags: [Storage]
+      summary: Copy storage file between nodes (or same-node copy)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_device_id, from_path, to_device_id, to_path]
+              properties:
+                from_device_id: { type: string }
+                from_path: { type: string }
+                to_device_id: { type: string }
+                to_path: { type: string }
+      responses:
+        '202':
+          description: Cross-node transfer accepted
+        '200':
+          description: Same-node copy completed
+  /v1/storage/object:
+    delete:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+  /v1/storage/upload:
+    post:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageUpload'
+      responses:
+        '202':
+          description: Transfer accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transfer'
+        '507':
+          description: Quota exceeded
+  /v1/storage/read:
+    get:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+        - name: to_device_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Download transfer
+  /v1/storage/files/{id}:
+    get:
+      tags: [Storage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageFile'
+  /v1/transfers:
+    get:
+      tags: [Transfers]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Transfers
+    post:
+      tags: [Transfers]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '202':
+          description: Created
+  /v1/transfers/{id}:
+    get:
+      tags: [Transfers]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transfer'
+  /v1/transfers/{id}/abort:
+    post:
+      tags: [Transfers]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Aborted
+  /v1/sync/jobs:
+    get:
+      tags: [Sync]
+      summary: List sync jobs (Stage 6.1)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Jobs
+    post:
+      tags: [Sync]
+      summary: Create one-way sync job
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Created
+  /v1/sync/jobs/{id}:
+    get:
+      tags: [Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Job
+    delete:
+      tags: [Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Deleted
+  /v1/sync/jobs/{id}/run:
+    post:
+      tags: [Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '202':
+          description: Started
+  /v1/sync/jobs/{id}/cancel:
+    post:
+      tags: [Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Canceling
+  /v1/sync/jobs/{id}/files:
+    get:
+      tags: [Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Per-file sync state
+  /v1/files/search:
+    get:
+      tags: [Files]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Substring match on name or path (metadata only)
+        - name: device_id
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string, enum: [image, video, pdf, text] }
+        - name: folder
+          in: query
+          schema: { type: string }
+        - name: min_size
+          in: query
+          schema: { type: integer }
+        - name: max_size
+          in: query
+          schema: { type: integer }
+        - name: modified_after
+          in: query
+          schema: { type: string }
+        - name: modified_before
+          in: query
+          schema: { type: string }
+        - name: is_directory
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileHit'
+  /v1/files/reindex:
+    post:
+      tags: [Files]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id: { type: string }
+      responses:
+        '200':
+          description: Replaced metadata snapshots for online nodes
+  /v1/services:
+    get:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: device_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Flat service list
+    post:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id, name, port]
+              properties:
+                device_id: { type: string }
+                name: { type: string }
+                kind: { type: string, enum: [web, api, database, worker, other] }
+                protocol: { type: string, enum: [http, https, tcp, udp] }
+                port: { type: integer }
+                bind: { type: string }
+      responses:
+        '201':
+          description: Registered
+  /v1/services/tree:
+    get:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Services grouped by node
+  /v1/services/{id}:
+    get:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: One service
+    patch:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Deleted
+  /v1/services/{id}/health:
+    get:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Live health (registered / agent / tunnel / backend)
+  /v1/routes:
+    get:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Public hostname routes
+    post:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostname, service_id]
+              properties:
+                hostname: { type: string }
+                service_id: { type: string }
+                edge_device_id: { type: string }
+      responses:
+        '201':
+          description: Route created
+  /v1/routes/{id}:
+    delete:
+      tags: [Services]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Deleted
+  /v1/routes/{id}/traffic:
+    get:
+      tags: [Services]
+      summary: Edge traffic binding (traffic.read). {id} is route id or hostname.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Active release, weights, history
+  /v1/routes/{id}/switch:
+    post:
+      tags: [Services]
+      summary: Cut over traffic to a health-passed release (traffic.write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Traffic after switch
+  /v1/routes/{id}/rollback:
+    post:
+      tags: [Services]
+      summary: Restore previous Edge binding without redeploy (traffic.write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Traffic after rollback
+  /v1/logs:
+    get:
+      tags: [Logs]
+      summary: Unified operational logs (logs.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: service, in: query, schema: { type: string } }
+        - { name: release_id, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: trace_id, in: query, schema: { type: string } }
+        - { name: after, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Chronological log window
+    post:
+      tags: [Logs]
+      summary: Ingest a log line (logs.write). Secrets are redacted.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Stored event
+  /v1/logs/follow:
+    get:
+      tags: [Logs]
+      summary: SSE tail of operational logs (logs.read)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: text/event-stream
+  /v1/ops/context:
+    get:
+      tags: [Logs]
+      summary: Read-only operational snapshot for a service (existing read scopes)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: service, in: query, required: true, schema: { type: string } }
+        - { name: device_id, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Current/latest release, traffic, health, last deploy, recent errors
+  /v1/workflows:
+    get:
+      tags: [Logs]
+      summary: Catalog + recent workflow runs (existing step scopes)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: catalog and workflows
+  /v1/workflows/run:
+    post:
+      tags: [Logs]
+      summary: Run diagnose-service, deploy-release, or restore-backup
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Workflow execution (status may be succeeded, failed, or denied)
+  /v1/workflows/{id}:
+    get:
+      tags: [Logs]
+      summary: Get a workflow run including steps
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: Workflow with steps
+  /v1/workflows/{id}/steps:
+    get:
+      tags: [Logs]
+      summary: List steps of a workflow run
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: steps
+  /v1/ai/sessions:
+    get:
+      tags: [Auth]
+      summary: List scoped AI sessions (credentials.write)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: sessions without secrets
+    post:
+      tags: [Auth]
+      summary: Create a temporary AI session credential (token once)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Session + token
+  /v1/ai/sessions/current:
+    get:
+      tags: [Auth]
+      summary: Current AI session context (no extra scope)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: actor, scopes, expiry
+  /v1/ai/sessions/{id}:
+    get:
+      tags: [Auth]
+      summary: Get an AI session
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: session
+    delete:
+      tags: [Auth]
+      summary: Revoke an AI session immediately
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: revoked
+  /v1/audit:
+    get:
+      tags: [Logs]
+      summary: Search audit events (audit.read)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: action
+          schema: { type: string }
+        - in: query
+          name: actor_type
+          schema: { type: string }
+        - in: query
+          name: ai_session_id
+          schema: { type: string }
+        - in: query
+          name: workflow_id
+          schema: { type: string }
+        - in: query
+          name: trace_id
+          schema: { type: string }
+        - in: query
+          name: mcp_client
+          schema: { type: string }
+        - in: query
+          name: q
+          schema: { type: string }
+      responses:
+        '200':
+          description: Structured events (actor_type, parent, route/release for traffic.switch)
+  /v1/audit/ai:
+    get:
+      tags: [Logs]
+      summary: AI Activity view (audit.read)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Grouped AI session activity including workflow steps
+  /v1/audit/trace/{id}:
+    get:
+      tags: [Logs]
+      summary: All audit events for a trace_id (audit.read)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: events sharing the trace
+  /v1/plans:
+    get:
+      tags: [Logs]
+      summary: List plans (proposal objects; creating a plan does not mutate)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: catalog + plans
+    post:
+      tags: [Logs]
+      summary: Create a plan (no deploy / traffic / build)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Plan in ready or ready_for_approval
+  /v1/plans/{id}:
+    get:
+      tags: [Logs]
+      summary: Get a plan including steps and risk
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: Plan
+  /v1/plans/{id}/approve:
+    post:
+      tags: [Logs]
+      summary: Human approval then per-step execute (403 for AI sessions)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: Executed plan
+  /v1/plans/{id}/execute:
+    post:
+      tags: [Logs]
+      summary: Execute a ready (read/low) or approved plan; AI cannot execute high/critical
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: Executed plan
+  /v1/plans/{id}/cancel:
+    post:
+      tags: [Logs]
+      summary: Cancel a plan that has not started executing
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: Cancelled plan
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    LoginResult:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+        user:
+          type: object
+          properties:
+            id: { type: string }
+            email: { type: string }
+    Identity:
+      type: object
+      properties:
+        kind: { type: string }
+        user_id: { type: string }
+        email: { type: string }
+        actor: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+    Device:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hostname: { type: string }
+        os: { type: string }
+        arch: { type: string }
+        online: { type: boolean }
+        created_at: { type: string }
+    Overview:
+      type: object
+      properties:
+        devices_total: { type: integer }
+        devices_online: { type: integer }
+        devices_offline: { type: integer }
+    StorageEntry:
+      type: object
+      properties:
+        name: { type: string }
+        path: { type: string }
+        is_directory: { type: boolean }
+        size: { type: integer }
+        mtime: { type: string }
+        sha256: { type: string }
+        mime_type: { type: string }
+        file_id: { type: string }
+    FileHit:
+      type: object
+      properties:
+        id: { type: string }
+        file_id: { type: string }
+        device_id: { type: string }
+        device_name: { type: string }
+        path: { type: string }
+        name: { type: string }
+        size: { type: integer }
+        mtime: { type: string }
+        sha256: { type: string }
+        mime_type: { type: string }
+        is_directory: { type: boolean }
+        indexed_at: { type: string }
+    StorageStat:
+      allOf:
+        - $ref: '#/components/schemas/StorageEntry'
+        - type: object
+          properties:
+            mode: { type: string }
+    StorageFile:
+      type: object
+      properties:
+        id: { type: string }
+        device_id: { type: string }
+        path: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+        status: { type: string, enum: [uploading, incomplete, complete] }
+        transfer_id: { type: string }
+        bytes_received: { type: integer }
+    StorageUpload:
+      type: object
+      required: [device_id, path, from_device_id, size, sha256]
+      properties:
+        device_id: { type: string }
+        path: { type: string }
+        from_device_id: { type: string }
+        source_path: { type: string }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        resume: { type: boolean }
+    PathPair:
+      type: object
+      required: [device_id, from_path, to_path]
+      properties:
+        device_id: { type: string }
+        from_path: { type: string }
+        to_path: { type: string }
+    Transfer:
+      type: object
+      properties:
+        id: { type: string }
+        from_device_id: { type: string }
+        to_device_id: { type: string }
+        filename: { type: string }
+        source_path: { type: string }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        status: { type: string }
+        error: { type: string }
+        path: { type: string, description: 'direct|relay' }
+        file_id: { type: string }
+        resume_offset: { type: integer, format: int64 }
+        bytes_received: { type: integer, format: int64 }
+        created_at: { type: string }
+        updated_at: { type: string }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

@@ -1,0 +1,23 @@
+{
+  "name": "@node-infra/client",
+  "version": "0.5.0",
+  "description": "Node (knot) Client SDK — Stage 5.0 contract over the public /v1 API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3"
+  },
+  "license": "Apache-2.0"
+}

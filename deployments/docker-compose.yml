@@ -1,0 +1,22 @@
+services:
+  knotd:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    ports:
+      - "8787:8787"
+    environment:
+      KNOT_HTTP_ADDR: "0.0.0.0:8787"
+      KNOT_DB_PATH: /data/knot.db
+      KNOT_TLS_CERT: /certs/server.crt
+      KNOT_TLS_KEY: /certs/server.key
+      KNOT_BOOTSTRAP_ADMIN: ${KNOT_BOOTSTRAP_ADMIN}
+      KNOT_BOOTSTRAP_PASSWORD: ${KNOT_BOOTSTRAP_PASSWORD}
+      KNOT_CORS_ORIGIN: ${KNOT_CORS_ORIGIN:-http://localhost:5173}
+      KNOT_PUBLIC_BASE_URL: ${KNOT_PUBLIC_BASE_URL:-https://localhost:8787}
+    volumes:
+      - knot-data:/data
+      - ${KNOT_TLS_DIR:-../certs}:/certs:ro
+
+volumes:
+  knot-data:

@@ -1,0 +1,15 @@
+[Unit]
+Description=Node Device (knot-agent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/knot/knot-agent.env
+ExecStart=/usr/local/bin/knot-agent
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

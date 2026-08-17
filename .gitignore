@@ -1,0 +1,12 @@
+node_modules/
+web/node_modules/
+web/dist/
+sdk/js/node_modules/
+sdk/js/dist/
+bin/
+data/
+*.db
+.DS_Store
+.env
+*.log
+.knot/
