@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { createClient, setToken } from '@/lib/client'
+import { usePrefs } from '@/lib/prefs'
 
 export default function Login() {
   const nav = useNavigate()
+  const { t, lang, setLang, theme, setTheme } = usePrefs()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -20,7 +22,7 @@ export default function Login() {
       setToken(res.access_token || res.token || '')
       nav('/')
     } catch {
-      setError('Could not sign in. Use the email and password you set when installing Node.')
+      setError(t('login_error'))
     } finally {
       setBusy(false)
     }
@@ -37,16 +39,23 @@ export default function Login() {
           onSubmit={onSubmit}
           className="w-full max-w-md space-y-6 rounded-2xl border border-border/40 bg-background/60 p-8 backdrop-blur"
         >
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                {theme === 'dark' ? t('theme_light') : t('theme_dark')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}>
+                {lang === 'en' ? 'RU' : 'EN'}
+              </Button>
+            </div>
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40">Node</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
-            <p className="text-foreground/70">
-              This opens the panel for your computers and files. Nothing here is public.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40">{t('brand')}</p>
+            <h1 className="text-3xl font-semibold tracking-tight">{t('login_title')}</h1>
+            <p className="text-foreground/70">{t('login_lead')}</p>
           </div>
           <label className="block space-y-2 text-sm">
-            <span className="font-medium text-foreground/70">Email</span>
+            <span className="font-medium text-foreground/70">{t('email')}</span>
             <input
+              className="w-full"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
@@ -54,8 +63,9 @@ export default function Login() {
             />
           </label>
           <label className="block space-y-2 text-sm">
-            <span className="font-medium text-foreground/70">Password</span>
+            <span className="font-medium text-foreground/70">{t('password')}</span>
             <input
+              className="w-full"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -64,7 +74,7 @@ export default function Login() {
             />
           </label>
           <Button type="submit" className="w-full" disabled={busy || !email || !password}>
-            {busy ? 'Signing in…' : 'Open Node'}
+            {busy ? '…' : t('open_node')}
           </Button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </form>

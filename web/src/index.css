@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
@@ -13,6 +15,23 @@
   --border: 240 5.9% 90%;
   --ring: 240 5.9% 10%;
   --destructive: 0 84.2% 60.2%;
+  --sidebar: 240 4.8% 97%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 6%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+  --destructive: 0 62.8% 50.6%;
+  --sidebar: 240 10% 5.5%;
 }
 
 @theme inline {
@@ -29,16 +48,17 @@
   --color-border: hsl(var(--border));
   --color-ring: hsl(var(--ring));
   --color-destructive: hsl(var(--destructive));
+  --color-sidebar: hsl(var(--sidebar));
 }
 
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 body {
-  margin: 0;
   font-family: var(--font-sans);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
@@ -59,12 +79,12 @@ button {
 input,
 select,
 textarea {
-  width: 100%;
   border-radius: 0.75rem;
   border: 1px solid hsl(var(--border) / 0.8);
   background: hsl(var(--background) / 0.7);
-  padding: 0.65rem 0.85rem;
+  padding: 0.55rem 0.8rem;
   outline: none;
+  color: inherit;
 }
 
 input:focus,
@@ -74,133 +94,71 @@ textarea:focus {
   box-shadow: 0 0 0 3px hsl(var(--ring) / 0.12);
 }
 
-select {
-  width: auto;
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
 }
 
 @layer components {
   .panel {
-    @apply relative overflow-hidden rounded-2xl border border-border/40 bg-background/60 p-6 backdrop-blur transition-all hover:border-border/60 hover:shadow-lg;
+    @apply relative overflow-hidden rounded-2xl border border-border/40 bg-background/60 p-6 backdrop-blur;
   }
-  .muted { @apply text-foreground/60; }
-  .error { @apply mt-2 text-sm text-red-600; }
+  .muted { @apply text-muted-foreground; }
+  .error { @apply mt-2 text-sm text-red-600 dark:text-red-400; }
   .mono { @apply font-mono text-sm; }
   .row { @apply flex flex-wrap items-center gap-3; }
   .field { @apply my-3 space-y-1; }
-  .field label { @apply block text-sm text-foreground/60; }
+  .field label { @apply block text-sm text-muted-foreground; }
   .table { @apply mt-4 w-full border-collapse text-sm; }
   .table th,
   .table td { @apply border-b border-border/40 px-2 py-3 text-left; }
   .token-once { @apply mt-4 rounded-xl border border-dashed border-foreground/20 bg-foreground/[0.03] p-4; }
-  .help-note { @apply mt-3 rounded-xl bg-foreground/[0.03] p-3 text-sm text-foreground/60; }
+  .help-note { @apply mt-3 rounded-xl bg-foreground/[0.03] p-3 text-sm text-muted-foreground; }
   .page-kicker { @apply mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40; }
   .badge { @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs uppercase tracking-[0.12em]; }
-  .badge.online { @apply border-emerald-500/30 text-emerald-600; }
-  .badge.offline { @apply border-border text-foreground/50; }
-  .badge.stale { @apply border-amber-500/30 text-amber-700; }
+  .badge.online { @apply border-emerald-500/30 text-emerald-600 dark:text-emerald-400; }
+  .badge.offline { @apply border-border text-muted-foreground; }
+  .badge.stale { @apply border-amber-500/30 text-amber-700 dark:text-amber-400; }
   button.ghost {
-    @apply rounded-lg border border-transparent bg-transparent px-3 py-2 text-sm text-foreground/70 hover:bg-background/50 hover:text-foreground;
+    @apply rounded-lg border border-transparent bg-transparent px-3 py-2 text-sm text-foreground/70 hover:bg-muted hover:text-foreground;
   }
   button.secondary {
-    @apply rounded-lg border border-border/40 bg-background/60 px-3 py-2 text-sm backdrop-blur hover:border-border/60;
+    @apply rounded-lg border border-border/40 bg-background/60 px-3 py-2 text-sm hover:border-border/60;
   }
-  button.tiny { @apply rounded-md px-2 py-1 text-xs text-foreground/60 hover:text-foreground; }
+  button.tiny { @apply rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground; }
   button.tiny.danger:hover,
-  button.danger { @apply text-red-600; }
-  button:not(.ghost):not(.secondary):not(.tiny):not(.crumb):not(.node-item):not(.root-chip):not(.up-link):not(.name-btn):not(.inline-flex) {
-    @apply inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40;
-  }
-
-  .workspace { @apply grid min-h-[70vh] gap-4 lg:grid-cols-[280px_1fr]; }
-  .nodes-rail {
-    @apply space-y-3 overflow-auto rounded-2xl border border-border/40 bg-background/60 p-4 backdrop-blur;
-  }
-  .rail-label { @apply px-1 pb-2 text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40; }
-  .node-list { @apply m-0 list-none p-0; }
-  .node-item {
-    @apply mb-1 flex w-full items-start gap-3 rounded-xl border border-transparent p-3 text-left hover:bg-background/50;
-  }
-  .node-item.active { @apply border-border/40 bg-background/80; }
-  .node-item .pulse { @apply mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/25; }
-  .node-item.is-online .pulse { @apply bg-emerald-500; }
-  .node-item .pulse.all { @apply bg-primary; }
-  .node-meta { @apply flex min-w-0 flex-col gap-0.5; }
-  .node-meta strong { @apply text-sm font-semibold; }
-  .node-meta small { @apply text-xs text-foreground/60; }
-  .empty-rail { @apply p-2 text-sm text-foreground/60; }
-  .drop-hint { @apply rounded-xl bg-foreground/[0.04] p-2 text-sm; }
-  .files-pane { @apply min-w-0 overflow-auto rounded-2xl border border-border/40 bg-background/60 p-5 backdrop-blur; }
-  .files-head { @apply mb-4 flex items-start justify-between gap-4; }
-  .pane-title { @apply text-3xl font-semibold tracking-tight; }
-  .crumbs { @apply mt-1 text-sm text-foreground/60; }
-  .crumb { @apply bg-transparent p-0 text-foreground/60 hover:text-foreground; }
-  .file-actions { @apply flex flex-wrap gap-2; }
-  .root-shortcuts { @apply mb-4 flex flex-wrap gap-2; }
-  .root-chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/50 px-3 py-2 text-sm hover:bg-background;
-  }
-  .file-table { @apply border-t border-border/40; }
-  .file-row {
-    @apply grid grid-cols-[minmax(0,1.6fr)_100px_140px] items-center gap-3 border-b border-border/40 px-1 py-2.5;
-  }
-  .file-row.all { @apply grid-cols-[minmax(0,1.4fr)_120px_100px_140px]; }
-  .file-row.head { @apply pt-3 text-xs uppercase tracking-[0.16em] text-foreground/40; }
-  .file-row.picked { @apply bg-foreground/[0.04]; }
-  .file-row.file:hover,
-  .file-row.dir:hover { @apply bg-background/40; }
-  .name-cell { @apply flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap font-medium; }
-  .file-thumb { @apply h-5 w-5 shrink-0 rounded border border-border/40 object-cover; }
-  .folder-glyph,
-  .file-glyph { @apply mr-1 inline-block h-3 w-3 border border-current opacity-60; }
-  .up-link { @apply mb-3 bg-transparent p-0 text-sm text-foreground/60 hover:text-foreground; }
-  .empty-state { @apply max-w-lg py-10; }
-  .empty-state h2 { @apply mb-2 text-2xl font-semibold tracking-tight; }
-  .empty-state p { @apply mb-4 text-foreground/60; }
-  .empty-files { @apply py-10 text-foreground/60; }
-  .transfers-dock {
-    @apply mt-4 rounded-2xl border border-border/40 bg-background/60 p-4 backdrop-blur;
-  }
-  .dock-label { @apply mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40; }
-  .xfer-list { @apply m-0 grid list-none gap-2 p-0; }
-  .bar { @apply h-1 overflow-hidden rounded bg-foreground/10; }
-  .bar i { @apply block h-full bg-primary; }
-  .ctx-menu {
-    @apply fixed z-40 min-w-48 rounded-xl border border-border/40 bg-background/90 p-1 shadow-lg backdrop-blur;
-  }
-  .ctx-menu button { @apply w-full rounded-lg bg-transparent px-3 py-2 text-left text-sm hover:bg-foreground/[0.04]; }
-  .modal-back { @apply fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm; }
-  .modal { @apply max-h-[85vh] w-full max-w-3xl overflow-auto rounded-2xl border border-border/40 bg-background p-5; }
-  .modal.conflict { @apply max-w-md; }
-  .modal-head { @apply mb-3 flex items-center justify-between; }
-  .toasts { @apply fixed bottom-4 right-4 z-50 grid w-80 gap-2; }
-  .toast { @apply rounded-xl border border-border/40 bg-background/90 px-3 py-2 text-sm shadow-lg backdrop-blur; }
-  .toast.err { @apply text-red-600; }
-  .hint-chip { @apply rounded-full border border-border/40 bg-background/50 px-3 py-1 text-xs text-foreground/60; }
-  .hint-row { @apply mb-3 flex flex-wrap gap-2; }
-  .metric-row { @apply mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4; }
-  .metric { @apply rounded-xl border border-border/40 bg-background/40 p-3; }
-  .metric .lbl { @apply text-xs font-semibold uppercase tracking-[0.2em] text-foreground/40; }
-  .metric .val { @apply mt-1 text-lg font-semibold tracking-tight; }
-  .banner-warn { @apply mb-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800; }
-  .banner-err { @apply mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700; }
-  .card-link { @apply block rounded-2xl border border-border/40 bg-background/60 p-5 backdrop-blur transition hover:-translate-y-1 hover:shadow-lg; }
-  .card-grid { @apply mb-6 grid gap-4 sm:grid-cols-2; }
-  .card-link .go { @apply mt-3 text-xs uppercase tracking-[0.12em] text-foreground/50; }
+  button.danger { @apply text-red-600 dark:text-red-400; }
+  .steps { @apply mb-4 list-decimal pl-5 text-foreground/80; }
   .computer-list { @apply mt-4 grid gap-3; }
   .computer-card {
-    @apply grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-border/40 bg-background/60 p-4 backdrop-blur;
+    @apply grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-border/40 bg-background/60 p-4;
   }
   .computer-card .pulse { @apply h-3 w-3 rounded-full bg-foreground/25; }
   .computer-card.is-online .pulse { @apply bg-emerald-500; }
   .status-pill { @apply rounded-full border px-2 py-1 text-xs font-semibold; }
-  .status-pill.online { @apply border-emerald-500/30 text-emerald-600; }
-  .status-pill.offline { @apply border-border text-foreground/50; }
+  .status-pill.online { @apply border-emerald-500/30 text-emerald-600 dark:text-emerald-400; }
+  .status-pill.offline { @apply border-border text-muted-foreground; }
   .status-pill.ready { @apply border-transparent bg-foreground/[0.04]; }
   .update-row { @apply grid items-center gap-4 border-t border-border/40 py-4 md:grid-cols-[1fr_auto]; }
-  .steps { @apply mb-4 list-decimal pl-5 text-foreground/80; }
+  .card-link { @apply block rounded-2xl border border-border/40 bg-background/60 p-5 transition hover:-translate-y-1 hover:shadow-lg; }
+  .card-grid { @apply mb-6 grid gap-4 sm:grid-cols-2; }
+  .card-link .go { @apply mt-3 text-xs uppercase tracking-[0.12em] text-foreground/50; }
   .compute-dl { @apply mt-3 grid gap-2 sm:grid-cols-2; }
   .svc-tree { @apply mt-3 list-none p-0 text-sm; }
+  .modal-back { @apply fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm; }
+  .modal { @apply max-h-[85vh] w-full max-w-3xl overflow-auto rounded-2xl border border-border/40 bg-background p-5; }
+  .modal.conflict { @apply max-w-md; }
+  .modal-head { @apply mb-3 flex items-center justify-between; }
+  .ctx-menu {
+    @apply fixed z-40 min-w-48 rounded-xl border border-border/40 bg-background/95 p-1 shadow-lg backdrop-blur;
+  }
+  .ctx-menu button { @apply w-full rounded-lg bg-transparent px-3 py-2 text-left text-sm hover:bg-muted; }
+  .toasts { @apply fixed right-4 bottom-4 z-50 grid w-80 gap-2; }
+  .toast { @apply rounded-xl border border-border/40 bg-background/95 px-3 py-2 text-sm shadow-lg backdrop-blur; }
+  .toast.err { @apply text-red-600 dark:text-red-400; }
+  .bar { @apply h-1 overflow-hidden rounded bg-foreground/10; }
+  .bar i { @apply block h-full bg-primary transition-[width] duration-200; }
   .preview-text { @apply max-h-[65vh] overflow-auto whitespace-pre-wrap rounded-xl border border-border/40 bg-background p-3; }
   .preview-img { @apply mx-auto block max-h-[70vh] max-w-full; }
-  .preview-frame { @apply h-[60vh] w-full rounded-xl border border-border/40; }
 }

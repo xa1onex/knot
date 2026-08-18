@@ -9,7 +9,8 @@ import { api } from '@/api'
 import { createClient } from '@/lib/client'
 import { formatWhen } from '@/lib/format'
 import type { Device, Transfer } from '@node-infra/client'
-import DashboardShell, { PageHero } from '@/shell/DashboardShell'
+import { usePrefs } from '@/lib/prefs'
+import { PageHero } from '@/shell/DashboardShell'
 
 type OverviewData = {
   devices_total: number
@@ -43,6 +44,7 @@ function bucketsFrom(dates: string[], labels: number) {
 }
 
 export default function Overview() {
+  const { t } = usePrefs()
   const nav = useNavigate()
   const cl = useMemo(() => createClient(), [])
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -102,53 +104,52 @@ export default function Overview() {
   ).length
 
   return (
-    <DashboardShell>
+    <div>
       <PageHero
         live={live}
-        liveLabel={live ? 'Live' : 'Waiting'}
-        title="Your network at a glance"
-        description="See which computers are connected, what moved recently, and whether Node itself needs an update. Click a card when you want to do something."
+        title={t('overview_title')}
+        description={t('overview_lead')}
         actions={
           <>
-            <Button variant="outline" size="icon" aria-label="Refresh" onClick={() => window.location.reload()}>
+            <Button variant="outline" size="icon" aria-label={t('refresh')} onClick={() => window.location.reload()}>
               <RefreshCw className="h-4 w-4" />
             </Button>
             <Button variant="outline" onClick={() => nav('/files')}>
-              Open files
+              {t('open_files')}
             </Button>
           </>
         }
       />
 
-      {error && <p className="mb-6 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-6 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="Computers"
+            label={t('computers')}
             value={String(overview?.devices_total ?? '—')}
-            change={overview ? `${overview.devices_online} online` : undefined}
+            change={overview ? `${overview.devices_online} ${t('online')}` : undefined}
             trend={overview && overview.devices_online > 0 ? 'up' : 'neutral'}
             icon={<Monitor className="h-6 w-6 text-primary" />}
           />
           <MetricCard
-            label="Connected now"
+            label={t('connected_now')}
             value={String(overview?.devices_online ?? '—')}
-            change={overview && overview.devices_offline ? `${overview.devices_offline} away` : 'all here'}
+            change={overview && overview.devices_offline ? `${overview.devices_offline} ${t('away')}` : t('all_here')}
             trend={overview && overview.devices_offline ? 'down' : 'up'}
             icon={<Zap className="h-6 w-6 text-primary" />}
           />
           <MetricCard
-            label="Transfers"
+            label={t('transfers')}
             value={String(activeTransfers)}
-            change={activeTransfers ? 'in progress' : 'idle'}
+            change={activeTransfers ? t('in_progress') : t('idle')}
             trend={activeTransfers ? 'up' : 'neutral'}
             icon={<HardDrive className="h-6 w-6 text-primary" />}
           />
           <MetricCard
-            label="Updates"
-            value={updatesReady ? String(updatesReady) : 'None'}
-            change={updatesReady ? 'ready to install' : 'up to date'}
+            label={t('updates')}
+            value={updatesReady ? String(updatesReady) : t('none')}
+            change={updatesReady ? t('ready_to_install') : t('up_to_date')}
             trend={updatesReady ? 'down' : 'up'}
             icon={<RefreshCw className="h-6 w-6 text-primary" />}
           />
@@ -156,30 +157,30 @@ export default function Overview() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <ChartCard
-            title="Activity"
-            description="Actions on this panel, last 13 hours"
+            title={t('activity')}
+            description={t('activity_chart')}
             data={activitySeries}
           />
           <ChartCard
-            title="Transfers"
-            description="File sends started in the last 13 hours"
+            title={t('transfers')}
+            description={t('transfers_chart')}
             data={transferSeries}
           />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           <DetailedCard
-            title="Computers"
+            title={t('computers')}
             items={devices.slice(0, 5).map((d) => ({
               label: d.name,
-              value: d.online ? 'Online' : 'Away',
-              subtitle: d.os || 'Computer',
+              value: d.online ? t('connected') : t('not_connected'),
+              subtitle: d.os || t('computers'),
               href: '/files',
             }))}
             onSelect={() => nav('/computers')}
           />
           <DetailedCard
-            title="Recent activity"
+            title={t('recent_activity')}
             items={events.slice(0, 5).map((e) => ({
               label: e.action.replaceAll('.', ' '),
               value: e.result || 'ok',
@@ -189,16 +190,16 @@ export default function Overview() {
             onSelect={() => nav('/settings/activity')}
           />
           <DetailedCard
-            title="What to do next"
+            title={t('next')}
             items={[
-              { label: 'Open files', value: 'Go', subtitle: 'Browse a connected computer', href: '/files' },
-              { label: 'Add a computer', value: 'Go', subtitle: 'Join a Mac or PC with a code', href: '/computers' },
-              { label: 'Check updates', value: 'Go', subtitle: 'Keep the panel current', href: '/settings' },
+              { label: t('open_files'), value: '→', subtitle: t('files_hint'), href: '/files' },
+              { label: t('add_computer'), value: '→', subtitle: t('computers_lead'), href: '/computers' },
+              { label: t('check_updates'), value: '→', subtitle: t('updates'), href: '/settings' },
             ]}
             onSelect={(item) => item.href && nav(item.href)}
           />
         </div>
       </div>
-    </DashboardShell>
+    </div>
   )
 }

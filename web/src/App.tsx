@@ -2,7 +2,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { getToken } from './lib/client'
 import Login from './pages/Login'
 import Overview from './pages/Overview'
-import NodeApp from './shell/NodeApp'
+import Files from './pages/Files'
 import Credentials from './pages/Credentials'
 import Activity from './pages/Activity'
 import Settings from './pages/Settings'
@@ -17,7 +17,7 @@ function RequireAuth() {
   return <Outlet />
 }
 
-function PageFrame() {
+function Frame() {
   return (
     <DashboardShell>
       <Outlet />
@@ -30,9 +30,9 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<Overview />} />
-        <Route path="/files" element={<NodeApp />} />
-        <Route element={<PageFrame />}>
+        <Route element={<Frame />}>
+          <Route path="/" element={<Overview />} />
+          <Route path="/files" element={<Files />} />
           <Route path="/computers" element={<Devices />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/sync" element={<Sync />} />

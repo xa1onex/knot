@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { api, type Device } from '../api'
 import PageHeader from '../components/PageHeader'
 import { formatWhen } from '../lib/format'
+import { usePrefs } from '../lib/prefs'
 
 export default function Devices() {
+  const { t } = usePrefs()
   const [devices, setDevices] = useState<Device[]>([])
   const [nameHint, setNameHint] = useState('')
   const [regToken, setRegToken] = useState('')
@@ -53,31 +55,30 @@ export default function Devices() {
   return (
     <div>
       <PageHeader
-        kicker="Network"
         live={online > 0}
-        liveLabel={online ? `${online} connected` : 'No computers yet'}
-        title="Computers"
-        description="These are the machines Node can open files on. This panel lives on your server; a home Mac or PC joins with a one-time code."
-        actions={<Link to="/files" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>Open files</Link>}
+        liveLabel={online ? t('connected') : t('waiting')}
+        title={t('computers_title')}
+        description={t('computers_lead')}
+        actions={<Link to="/files" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>{t('open_files')}</Link>}
       />
       {error && <div className="error">{error}</div>}
 
       <div className="panel">
         <p className="page-kicker" style={{ marginBottom: '0.5rem' }}>Add another computer</p>
-        <h2 style={{ fontSize: '1.25rem' }}>Join a Mac or PC</h2>
+        <h2 style={{ fontSize: '1.25rem' }}>{t('join_title')}</h2>
         <ol className="steps">
-          <li>Give it a nickname (optional), then create a join code.</li>
-          <li>On that computer, open Terminal and run the installer. Choose <strong>Device Node</strong>.</li>
-          <li>Paste this panel’s URL and the join code. After it connects, the computer appears below and in Files.</li>
+          <li>{t('join_step_1')}</li>
+          <li>{t('join_step_2')}</li>
+          <li>{t('join_step_3')}</li>
         </ol>
         <div className="row" style={{ marginTop: '0.25rem' }}>
           <input
             style={{ maxWidth: 280 }}
-            placeholder="Nickname, e.g. Home Mac"
+            placeholder={t('nickname')}
             value={nameHint}
             onChange={(e) => setNameHint(e.target.value)}
           />
-          <button type="button" onClick={() => void createRegToken()}>Create join code</button>
+          <button type="button" onClick={() => void createRegToken()}>{t('create_code')}</button>
         </div>
         {regToken && (
           <div className="token-once">
@@ -126,7 +127,7 @@ export default function Devices() {
                   </p>
                 </div>
                 <span className={`status-pill ${d.online ? 'online' : 'offline'}`}>
-                  {d.online ? 'Connected now' : 'Not connected'}
+                  {d.online ? t('connected') : t('not_connected')}
                 </span>
               </article>
             ))}

@@ -1,128 +1,170 @@
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Activity,
   BarChart3,
   FolderOpen,
+  Globe,
+  HardDrive,
+  KeyRound,
+  Languages,
   LogOut,
   Monitor,
+  Moon,
+  RefreshCw,
   Settings,
+  Sun,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { setToken } from '@/lib/client'
 import { cn } from '@/lib/cn'
+import { usePrefs } from '@/lib/prefs'
 
-const NAV = [
-  { to: '/', label: 'Overview', icon: BarChart3, end: true },
-  { to: '/files', label: 'Files', icon: FolderOpen },
-  { to: '/computers', label: 'Computers', icon: Monitor },
-  { to: '/settings/activity', label: 'Activity', icon: Activity },
-  { to: '/settings', label: 'Settings', icon: Settings, end: true },
-]
-
-export default function DashboardShell({
-  children,
-  wide,
-}: {
-  children: ReactNode
-  wide?: boolean
-}) {
+export default function DashboardShell({ children }: { children: ReactNode }) {
   const nav = useNavigate()
   const loc = useLocation()
+  const { t, lang, setLang, theme, setTheme } = usePrefs()
+  const fill = loc.pathname === '/files'
 
-  function activeFor(item: (typeof NAV)[number], isActive: boolean) {
-    if (item.label === 'Settings') {
-      return loc.pathname.startsWith('/settings') && loc.pathname !== '/settings/activity'
-    }
-    if (item.label === 'Activity') return loc.pathname === '/settings/activity'
-    return isActive
-  }
+  const NAV = [
+    { to: '/', label: t('nav_overview'), icon: BarChart3, end: true },
+    { to: '/files', label: t('nav_files'), icon: FolderOpen },
+    { to: '/computers', label: t('nav_computers'), icon: Monitor },
+    { to: '/settings', label: t('nav_updates'), icon: RefreshCw, end: true },
+    { to: '/settings/sync', label: t('nav_sync'), icon: Settings },
+    { to: '/settings/services', label: t('nav_sites'), icon: Globe },
+    { to: '/settings/compute', label: t('nav_hardware'), icon: HardDrive },
+    { to: '/settings/credentials', label: t('nav_keys'), icon: KeyRound },
+    { to: '/settings/activity', label: t('nav_history'), icon: Activity },
+  ]
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-foreground/[0.035] blur-[140px]" />
-        <div className="absolute bottom-0 right-0 h-[360px] w-[360px] rounded-full bg-foreground/[0.025] blur-[120px]" />
-        <div className="absolute left-1/4 top-1/2 h-[400px] w-[400px] rounded-full bg-primary/[0.02] blur-[150px]" />
+    <div className="relative flex h-full min-h-0 bg-background">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <motion.div
+          className="absolute top-0 left-1/3 h-[420px] w-[420px] rounded-full bg-foreground/[0.04] blur-[140px]"
+          animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-0 bottom-0 h-[320px] w-[320px] rounded-full bg-foreground/[0.03] blur-[120px]"
+          animate={{ x: [0, -20, 0], y: [0, -16, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
 
-      <motion.nav
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="border-b border-border/40 bg-background/40 backdrop-blur-md"
-        aria-label="Main"
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <NavLink to="/" className="text-xl font-semibold tracking-tight text-foreground">
-            Node
+      <aside className="flex w-[232px] shrink-0 flex-col border-r border-border/40 bg-sidebar/80 backdrop-blur-md">
+        <div className="px-5 py-5">
+          <NavLink to="/" className="text-xl font-semibold tracking-tight">
+            {t('brand')}
           </NavLink>
-          <div className="hidden gap-1 md:flex">
-            {NAV.map((item) => {
-              const Icon = item.icon
-              return (
-                <NavLink key={item.to + item.label} to={item.to} end={item.end}>
-                  {({ isActive }) => (
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs uppercase tracking-[0.1em] text-foreground/70 hover:bg-background/50 hover:text-foreground',
-                        activeFor(item, isActive) && 'bg-background/70 text-foreground',
-                      )}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden />
-                      {item.label}
-                    </span>
-                  )}
-                </NavLink>
-              )
-            })}
+        </div>
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto px-3 pb-3" aria-label="Main">
+          {NAV.slice(0, 3).map((item) => (
+            <SideLink key={item.to} {...item} />
+          ))}
+          <div className="my-3 h-px bg-border/50" />
+          {NAV.slice(3).map((item) => (
+            <SideLink key={item.to} {...item} />
+          ))}
+        </nav>
+        <div className="space-y-2 border-t border-border/40 p-3">
+          <div className="flex gap-1">
+            <Button
+              variant={theme === 'light' ? 'outline' : 'ghost'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setTheme('light')}
+              aria-label={t('theme_light')}
+            >
+              <Sun className="h-3.5 w-3.5" />
+              {t('theme_light')}
+            </Button>
+            <Button
+              variant={theme === 'dark' ? 'outline' : 'ghost'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setTheme('dark')}
+              aria-label={t('theme_dark')}
+            >
+              <Moon className="h-3.5 w-3.5" />
+              {t('theme_dark')}
+            </Button>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2"
+            className="w-full justify-start gap-2"
+            onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+          >
+            <Languages className="h-3.5 w-3.5" />
+            {lang === 'en' ? 'English · RU' : 'Русский · EN'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2"
             onClick={() => {
               setToken(null)
               nav('/login')
             }}
           >
-            <LogOut className="h-4 w-4" />
-            Log out
+            <LogOut className="h-3.5 w-3.5" />
+            {t('logout')}
           </Button>
         </div>
-        <div className="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden">
-          {NAV.map((item) => {
-            const Icon = item.icon
-            return (
-              <NavLink key={item.to + item.label} to={item.to} end={item.end} className="shrink-0">
-                {({ isActive }) => (
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs uppercase tracking-[0.1em] text-foreground/70',
-                      activeFor(item, isActive) && 'bg-background/70 text-foreground',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </span>
-                )}
-              </NavLink>
-            )
-          })}
-        </div>
-      </motion.nav>
+      </aside>
 
-      <div className="relative px-6 py-8 lg:py-12">
-        <div className={wide ? 'mx-auto max-w-[1400px]' : 'mx-auto max-w-7xl'}>{children}</div>
+      <div className={cn('min-w-0 flex-1', fill ? 'flex min-h-0 flex-col overflow-hidden' : 'overflow-auto')}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={loc.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22 }}
+            className={fill ? 'flex min-h-0 flex-1 flex-col' : 'mx-auto w-full max-w-6xl px-8 py-8'}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </div>
-    </main>
+    </div>
+  )
+}
+
+function SideLink({
+  to,
+  label,
+  icon: Icon,
+  end,
+}: {
+  to: string
+  label: string
+  icon: typeof BarChart3
+  end?: boolean
+}) {
+  return (
+    <NavLink to={to} end={end}>
+      {({ isActive }) => (
+        <span
+          className={cn(
+            'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-foreground/65 transition-colors hover:bg-background/60 hover:text-foreground',
+            isActive && 'bg-background text-foreground shadow-sm',
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          {label}
+        </span>
+      )}
+    </NavLink>
   )
 }
 
 export function PageHero({
   live,
-  liveLabel = 'Live',
+  liveLabel,
   title,
   description,
   actions,
@@ -133,48 +175,20 @@ export function PageHero({
   description: string
   actions?: ReactNode
 }) {
+  const { t } = usePrefs()
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="mb-12 space-y-4"
-    >
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div className="space-y-2">
-          {live != null && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-foreground/70 backdrop-blur">
-              <span className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-500' : 'bg-foreground/30'}`} />
-              {liveLabel}
-            </span>
-          )}
-          <h1 className="text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            {title}
-          </h1>
-          <p className="max-w-2xl text-foreground/70">{description}</p>
-        </div>
-        {actions && <div className="flex gap-2">{actions}</div>}
+    <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <div className="space-y-2">
+        {live != null && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/70">
+            <span className={cn('h-2 w-2 rounded-full', live ? 'bg-emerald-500' : 'bg-foreground/30')} />
+            {liveLabel || (live ? t('live') : t('waiting'))}
+          </span>
+        )}
+        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <p className="max-w-xl text-muted-foreground">{description}</p>
       </div>
-    </motion.div>
-  )
-}
-
-export function Glass({
-  children,
-  className,
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'group relative overflow-hidden rounded-2xl border border-border/40 bg-background/60 p-6 backdrop-blur transition-all hover:border-border/60 hover:shadow-lg',
-        className,
-      )}
-    >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-foreground/[0.04] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      <div className="relative">{children}</div>
+      {actions && <div className="flex gap-2">{actions}</div>}
     </div>
   )
 }
