@@ -61,10 +61,12 @@ export default function Files() {
     void (async () => {
       const list = (await cl.listDevices()).filter((d) => !d.revoked_at)
       setDevices(list)
-      setLeftId((cur) => cur && list.some((d) => d.id === cur) ? cur : list[0]?.id ?? null)
+      const first = list[0]?.id ?? null
+      const second = list.find((d) => d.id !== first)?.id ?? null
+      setLeftId((cur) => (cur && list.some((d) => d.id === cur) ? cur : first))
       setRightId((cur) => {
-        if (cur && list.some((d) => d.id === cur)) return cur
-        return list.find((d) => d.id !== list[0]?.id)?.id ?? list[1]?.id ?? list[0]?.id ?? null
+        if (cur && cur !== first && list.some((d) => d.id === cur)) return cur
+        return second
       })
     })()
     const id = setInterval(() => {
@@ -171,14 +173,19 @@ export default function Files() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border/40 px-5 py-3">
-        <p className="text-sm text-muted-foreground">{t('files_hint')}</p>
+        <p className="text-sm text-muted-foreground">{devices.length < 2 ? t('files_hint_one') : t('files_hint')}</p>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 divide-y divide-border/40 md:grid-cols-2 md:divide-x md:divide-y-0">
         <Pane
           side="left"
           devices={devices}
+          excludeId={rightId}
           deviceId={leftId}
-          onDevice={setLeftId}
+          onDevice={(id) => {
+            setLeftId(id)
+            if (id === rightId) setRightId(null)
+            setLeftPath('')
+          }}
           path={leftPath}
           onPath={setLeftPath}
           entries={left.entries}
@@ -191,23 +198,39 @@ export default function Files() {
           onMkdir={() => void mkdir(leftId, leftPath, left.refresh)}
           t={t}
         />
-        <Pane
-          side="right"
-          devices={devices}
-          deviceId={rightId}
-          onDevice={setRightId}
-          path={rightPath}
-          onPath={setRightPath}
-          entries={right.entries}
-          error={right.error}
-          dropping={dropping === 'right'}
-          onDragOver={() => setDropping('right')}
-          onDragLeave={() => setDropping(null)}
-          onDrop={(e) => onDrop('right', e)}
-          onUpload={() => rightInput.current?.click()}
-          onMkdir={() => void mkdir(rightId, rightPath, right.refresh)}
-          t={t}
-        />
+        {rightId ? (
+          <Pane
+            side="right"
+            devices={devices}
+            excludeId={leftId}
+            deviceId={rightId}
+            onDevice={(id) => {
+              setRightId(id)
+              if (id === leftId) setLeftId(null)
+              setRightPath('')
+            }}
+            path={rightPath}
+            onPath={setRightPath}
+            entries={right.entries}
+            error={right.error}
+            dropping={dropping === 'right'}
+            onDragOver={() => setDropping('right')}
+            onDragLeave={() => setDropping(null)}
+            onDrop={(e) => onDrop('right', e)}
+            onUpload={() => rightInput.current?.click()}
+            onMkdir={() => void mkdir(rightId, rightPath, right.refresh)}
+            t={t}
+          />
+        ) : (
+          <div className="flex flex-col items-start justify-center gap-3 bg-muted/30 px-8 py-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/40">{t('second_slot')}</p>
+            <h2 className="text-2xl font-semibold tracking-tight">{t('add_computer')}</h2>
+            <p className="max-w-sm text-muted-foreground">{t('second_slot_lead')}</p>
+            <Link to="/computers">
+              <Button>{t('add_computer')}</Button>
+            </Link>
+          </div>
+        )}
       </div>
       <input ref={leftInput} type="file" multiple hidden onChange={(e) => {
         if (leftId && e.target.files?.length) void uploadInto([...e.target.files], leftId, leftPath)
@@ -247,6 +270,7 @@ export default function Files() {
 
 function Pane({
   devices,
+  excludeId,
   deviceId,
   onDevice,
   path,
@@ -263,6 +287,7 @@ function Pane({
 }: {
   side: 'left' | 'right'
   devices: Device[]
+  excludeId?: string | null
   deviceId: string | null
   onDevice: (id: string) => void
   path: string
@@ -308,7 +333,7 @@ function Pane({
           }}
           className="min-w-40 flex-1"
         >
-          {devices.map((d) => (
+          {devices.filter((d) => d.id === deviceId || d.id !== excludeId).map((d) => (
             <option key={d.id} value={d.id}>
               {d.name} {d.online ? '' : `(${t('offline')})`}
             </option>
