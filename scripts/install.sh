@@ -384,7 +384,7 @@ RestartSec=3
 LimitNOFILE=65536
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
+NoNewPrivileges=false
 WorkingDirectory=${KNOT_DATA}
 
 [Install]
