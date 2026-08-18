@@ -47,43 +47,66 @@ func SourceStatus(ctx context.Context, component, sourceDir, build string, canAp
 		st.Error = err.Error()
 		return st
 	}
-	ref, err := gitOne(ctx, sourceDir, "rev-parse", "--abbrev-ref", "HEAD")
-	if err != nil {
-		st.Error = err.Error()
-		return st
-	}
-	latest, err := gitOne(ctx, sourceDir, "ls-remote", "origin", "refs/heads/"+ref)
-	if err != nil {
-		st.Error = err.Error()
-		return st
-	}
-	parts := strings.Fields(latest)
-	if len(parts) == 0 {
-		st.Error = "empty remote HEAD"
-		return st
-	}
 	st.CurrentRef = shortRef(cur)
-	st.LatestRef = shortRef(parts[0])
-	st.Available = strings.TrimSpace(cur) != strings.TrimSpace(parts[0])
+	latest, err := remoteLatestSHA(ctx, sourceDir)
+	if err != nil {
+		st.Error = err.Error()
+		return st
+	}
+	st.LatestRef = shortRef(latest)
+	st.Available = strings.TrimSpace(cur) != strings.TrimSpace(latest)
 	return st
 }
 
 func UpdateSource(ctx context.Context, sourceDir string) ([]string, error) {
-	cmds := [][]string{
-		{"fetch", "--prune", "origin"},
-		{"reset", "--hard", "origin/HEAD"},
-	}
 	var logs []string
-	for _, args := range cmds {
-		out, err := gitRun(ctx, sourceDir, args...)
-		if strings.TrimSpace(out) != "" {
-			logs = append(logs, out)
-		}
-		if err != nil {
-			return logs, err
-		}
+	out, err := gitRun(ctx, sourceDir, "fetch", "--prune", "origin")
+	if strings.TrimSpace(out) != "" {
+		logs = append(logs, out)
+	}
+	if err != nil {
+		return logs, err
+	}
+	_, _ = gitRun(ctx, sourceDir, "remote", "set-head", "origin", "-a")
+	tracking := remoteTrackingRef(ctx, sourceDir)
+	branch := strings.TrimPrefix(tracking, "origin/")
+	out, err = gitRun(ctx, sourceDir, "checkout", "-B", branch, tracking)
+	if strings.TrimSpace(out) != "" {
+		logs = append(logs, out)
+	}
+	if err != nil {
+		return logs, err
 	}
 	return logs, nil
+}
+
+func remoteLatestSHA(ctx context.Context, dir string) (string, error) {
+	var specs []string
+	if ref, err := gitOne(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
+		if ref != "" && ref != "HEAD" {
+			specs = append(specs, "refs/heads/"+ref)
+		}
+	}
+	specs = append(specs, "HEAD", "refs/heads/main", "refs/heads/master")
+	for _, spec := range specs {
+		latest, err := gitOne(ctx, dir, "ls-remote", "origin", spec)
+		if err != nil {
+			return "", err
+		}
+		parts := strings.Fields(latest)
+		if len(parts) > 0 {
+			return parts[0], nil
+		}
+	}
+	return "", fmt.Errorf("empty remote HEAD")
+}
+
+func remoteTrackingRef(ctx context.Context, dir string) string {
+	ref, err := gitOne(ctx, dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	if err == nil && strings.HasPrefix(ref, "origin/") {
+		return ref
+	}
+	return "origin/main"
 }
 
 func gitOne(ctx context.Context, dir string, args ...string) (string, error) {
@@ -94,7 +117,8 @@ func gitOne(ctx context.Context, dir string, args ...string) (string, error) {
 func gitRun(ctx context.Context, dir string, args ...string) (string, error) {
 	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(cctx, "git", args...)
+	full := append([]string{"-c", "safe.directory=" + dir}, args...)
+	cmd := exec.CommandContext(cctx, "git", full...)
 	cmd.Dir = dir
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

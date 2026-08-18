@@ -332,7 +332,9 @@ export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
 export GOFLAGS="-buildvcs=false"
 cd "${KNOT_DATA}/src"
 git -c safe.directory="${KNOT_DATA}/src" fetch --prune origin
-git -c safe.directory="${KNOT_DATA}/src" reset --hard origin/HEAD
+git -c safe.directory="${KNOT_DATA}/src" remote set-head origin -a || true
+TRACKING="\$(git -c safe.directory="${KNOT_DATA}/src" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
+git -c safe.directory="${KNOT_DATA}/src" checkout -B "\${TRACKING#origin/}" "\$TRACKING"
 go build -o "${KNOT_PREFIX}/bin/knotd" ./cmd/knotd
 if command -v npm >/dev/null 2>&1; then
   cd web
