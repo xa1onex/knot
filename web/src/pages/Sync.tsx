@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Device, SyncConflict, SyncJob } from '@node-infra/client'
 import { createClient } from '../lib/client'
+import PageHeader from '../components/PageHeader'
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`
@@ -203,11 +204,11 @@ export default function Sync() {
 
   return (
     <div>
-      <h1>Sync</h1>
-      <p className="muted">
-        Two-way sync with persistent conflicts. Offline queue drains into the same conflict model —
-        never a silent overwrite.
-      </p>
+      <PageHeader
+        kicker="Folders"
+        title="Keep two folders in step"
+        description="Pick a folder on computer A and the same idea of a folder on computer B. Two-way means both sides can change; if they disagree, Node asks you instead of overwriting."
+      />
       {error ? <p className="error">{error}</p> : null}
 
       {openCount > 0 ? (
@@ -354,13 +355,14 @@ export default function Sync() {
       ) : null}
 
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>New sync job</h2>
+        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Start a sync</h2>
+        <p className="muted" style={{ marginTop: '0.4rem' }}>Choose two computers and the folder path on each. You can run it whenever you want.</p>
         <div style={{ display: 'grid', gap: '0.6rem', marginTop: '0.75rem', maxWidth: 520 }}>
           <label className="muted">
             Mode
             <select value={mode} onChange={(e) => setMode(e.target.value as 'one_way' | 'two_way')} style={{ display: 'block', width: '100%', marginTop: 4 }}>
-              <option value="two_way">two_way (A ↔ B)</option>
-              <option value="one_way">one_way (A → B)</option>
+              <option value="two_way">Both ways — either computer can change files</option>
+              <option value="one_way">One way — A copies into B only</option>
             </select>
           </label>
           <label className="muted">
@@ -368,7 +370,7 @@ export default function Sync() {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="optional" style={{ display: 'block', width: '100%', marginTop: 4 }} />
           </label>
           <label className="muted">
-            Node A
+            Computer A
             <select value={from} onChange={(e) => setFrom(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4 }}>
               <option value="">—</option>
               {devices.map((d) => (
@@ -377,11 +379,11 @@ export default function Sync() {
             </select>
           </label>
           <label className="muted">
-            Path A
+            Folder on A
             <input value={fromPath} onChange={(e) => setFromPath(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4 }} />
           </label>
           <label className="muted">
-            Node B
+            Computer B
             <select value={to} onChange={(e) => setTo(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4 }}>
               <option value="">—</option>
               {devices.map((d) => (
@@ -390,19 +392,19 @@ export default function Sync() {
             </select>
           </label>
           <label className="muted">
-            Path B
+            Folder on B
             <input value={toPath} onChange={(e) => setToPath(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4 }} />
           </label>
           <button type="button" disabled={!from || !to || !fromPath || !toPath} onClick={() => void onCreate()}>
-            Create
+            Start sync
           </button>
         </div>
       </div>
 
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Jobs</h2>
+        <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Running syncs</h2>
         {!jobs.length ? (
-          <p className="muted" style={{ marginTop: '0.75rem' }}>No sync jobs yet.</p>
+          <p className="muted" style={{ marginTop: '0.75rem' }}>None yet. Start one above after you have two computers.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.75rem' }}>
             {jobs.map((j) => (

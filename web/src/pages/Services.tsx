@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Device, EdgeRoute, HostedService, ServiceNode } from '@node-infra/client'
 import { createClient } from '../lib/client'
+import PageHeader from '../components/PageHeader'
 
 const KINDS = ['web', 'api', 'database', 'worker', 'other'] as const
 
@@ -121,17 +122,18 @@ export default function Services() {
 
   return (
     <div>
-      <h1>Services</h1>
-      <p className="muted">
-        Control Plane knows where a service lives and which public hostname maps to it.
-        The process stays on the node. Public HTTPS terminates on the Edge; Home PC is reached only through the outbound agent tunnel.
-      </p>
+      <PageHeader
+        kicker="Hosting"
+        title="Put a website on a computer"
+        description="Tell Node which computer runs the app and which public name should open it. The app itself stays on that computer; this panel only maps the name."
+      />
       {error && <div className="error">{error}</div>}
 
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Register</h2>
+        <h2 style={{ fontSize: '1.15rem' }}>Register an app</h2>
+        <p className="muted">Name it, pick the computer, and the port it already listens on.</p>
         <div className="field">
-          <label>Node</label>
+          <label>Computer</label>
           <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
             {devices.map((d) => (
               <option key={d.id} value={d.id}>{d.name}{d.online ? '' : ' (offline)'}</option>
@@ -175,8 +177,8 @@ export default function Services() {
       </div>
 
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Edge routes</h2>
-        <p className="muted">example.com → service on a node. Traffic never dials 192.168.x.x; the home agent opens the tunnel outbound.</p>
+        <h2 style={{ fontSize: '1.15rem' }}>Public name</h2>
+        <p className="muted">example.com should open the app. Traffic goes through Node — it does not need your home IP.</p>
         <div className="row" style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
           <div className="field" style={{ flex: '1 1 160px' }}>
             <label>Hostname</label>
@@ -191,9 +193,9 @@ export default function Services() {
             </select>
           </div>
           <div className="field" style={{ flex: '1 1 160px' }}>
-            <label>Edge node (optional)</label>
+            <label>Which computer answers (optional)</label>
             <select value={edgeDeviceId} onChange={(e) => setEdgeDeviceId(e.target.value)}>
-              <option value="">Control Plane listener</option>
+              <option value="">This panel’s server</option>
               {devices.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
@@ -208,7 +210,7 @@ export default function Services() {
                 <span className="mono">{rt.hostname}</span>
                 <span>→ {rt.service_name}</span>
                 <span className="mono">{rt.listen}</span>
-                <span className="muted">Edge: {rt.edge_device_name || 'Control Plane'}</span>
+                <span className="muted">Via: {rt.edge_device_name || 'this panel'}</span>
                 <button type="button" className="tiny danger" onClick={() => void removeRoute(rt.id)}>Remove</button>
               </li>
             ))}
@@ -224,7 +226,7 @@ export default function Services() {
               <span className="muted">{n.online ? 'Online' : 'Offline'}</span>
             </div>
             {n.services.length === 0 ? (
-              <p className="muted" style={{ margin: '0.6rem 0 0' }}>No services registered.</p>
+              <p className="muted" style={{ margin: '0.6rem 0 0' }}>No apps registered on this computer.</p>
             ) : (
               <ul className="svc-tree">
                 {n.services.map((svc, i) => {

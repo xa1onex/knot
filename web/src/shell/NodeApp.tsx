@@ -9,9 +9,10 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import type { ComputeDevice, Device, StorageEntry, Transfer } from '@node-infra/client'
-import { createClient, putLocalFile, setToken, type ConflictMode } from '../lib/client'
-import { formatAgo, formatBytes, formatEta, formatWhen, joinPath, parentPath } from '../lib/format'
+import { createClient, putLocalFile, type ConflictMode } from '../lib/client'
+import { formatBytes, formatEta, formatWhen, joinPath, parentPath } from '../lib/format'
 import { newQueueId, type QueueItem } from '../lib/queue'
+import Chrome from '../components/Chrome'
 
 type DragPayload = {
   fromDeviceId: string
@@ -306,11 +307,11 @@ export default function NodeApp() {
 
   function onLocalFiles(files: FileList | File[]) {
     if (!selectedId || view === 'all') {
-      toast('Select a node to upload into', 'info')
+      toast('Pick a computer on the left first, then upload', 'info')
       return
     }
     if (!selectedDevice?.online) {
-      toast('Node is offline', 'err')
+      toast('That computer is offline', 'err')
       return
     }
     void uploadFiles([...files], selectedId, path, 'rename')
@@ -418,14 +419,14 @@ export default function NodeApp() {
       void contentType
     } catch (e) {
       patchQueue(id, { status: 'error', error: e instanceof Error ? e.message : 'download failed' })
-      toast('Download failed (file may be >8 MiB — use Send to node)', 'err')
+      toast('Download failed (file may be too large — try Send to another computer)', 'err')
     }
   }
 
   function onSendToNode(entry: StorageEntry, fromId: string) {
     const targets = devices.filter((d) => d.id !== fromId && d.online)
     if (!targets.length) {
-      toast('No other online nodes', 'info')
+      toast('No other connected computer to send to', 'info')
       return
     }
     const pick = window.prompt(targets.map((d, i) => `${i + 1}. ${d.name}`).join('\n'), '1')
@@ -535,33 +536,20 @@ export default function NodeApp() {
   )
 
   return (
-    <div className="node-app" onClick={() => setCtx(null)}>
-      <header className="topbar">
-        <div className="topbar-brand">
-          <span className="brand-mark">Node</span>
-          <span className="topbar-tag">your devices · your files</span>
-        </div>
-        <div className="topbar-search">
-          <input
-            placeholder={view === 'all' ? 'Search all files…' : 'Filter files…'}
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
-        <div className="topbar-actions">
-          <button type="button" className={`ghost ${view === 'all' ? 'on' : ''}`} onClick={() => { setView('all'); setPath('') }}>
-            All Files
-          </button>
-          <Link className="ghost-link" to="/settings">Settings</Link>
-          <button type="button" className="ghost" onClick={() => { setToken(null); window.location.href = '/login' }}>
-            Log out
-          </button>
-        </div>
-      </header>
-
+    <Chrome
+      fill
+      search={
+        <input
+          placeholder={view === 'all' ? 'Search files on every computer…' : 'Find a file in this folder…'}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          aria-label={view === 'all' ? 'Search all files' : 'Filter files'}
+        />
+      }
+    >
       <div className="workspace">
         <aside className="nodes-rail">
-          <div className="rail-label">My Nodes</div>
+          <div className="rail-label">Where to look</div>
           <ul className="node-list">
             <li>
               <button
@@ -571,8 +559,8 @@ export default function NodeApp() {
               >
                 <span className="pulse all" aria-hidden />
                 <span className="node-meta">
-                  <strong>All Files</strong>
-                  <small>All nodes · metadata index</small>
+                  <strong>All computers</strong>
+                  <small>Search everything at once</small>
                 </span>
               </button>
             </li>
@@ -584,7 +572,7 @@ export default function NodeApp() {
                   onClick={() => { setView('node'); setSelectedId(d.id); setPath('') }}
                   onDragOver={(e) => {
                     e.preventDefault()
-                    setDropHint(`Drop into ${d.name}`)
+                    setDropHint(`Drop to send into ${d.name}`)
                   }}
                   onDragLeave={() => setDropHint('')}
                   onDrop={(e) => onNodeDrop(e, d.id)}
@@ -593,14 +581,20 @@ export default function NodeApp() {
                   <span className="node-meta">
                     <strong>{d.name}</strong>
                     <small>
-                      {d.online ? 'Online' : 'Offline'} · {d.os || '—'}
-                      {d.last_seen_at ? ` · ${formatWhen(d.last_seen_at)}` : ''}
+                      {d.online ? 'Connected — click to open files' : 'Offline — wake this computer'}
                     </small>
                   </span>
                 </button>
               </li>
             ))}
           </ul>
+          {devices.length === 0 && (
+            <p className="empty-rail">No computers yet. Add a Mac or PC so files have a home.</p>
+          )}
+          <Link to="/computers" className="card-link" style={{ marginTop: '0.75rem', padding: '0.85rem' }}>
+            <strong style={{ fontSize: '0.95rem' }}>Add a computer</strong>
+            <span>Join a home Mac or PC with a one-time code.</span>
+          </Link>
           {dropHint && <div className="drop-hint">{dropHint}</div>}
         </aside>
 
@@ -608,13 +602,15 @@ export default function NodeApp() {
           className="files-pane"
           onDragOver={(e) => e.preventDefault()}
           onDrop={onPaneDrop}
+          onClick={() => setCtx(null)}
         >
           <div className="files-head">
             <div>
-              <h1 className="pane-title">{view === 'all' ? 'All Files' : selectedDevice?.name || 'Node'}</h1>
-              <nav className="crumbs">
+              <p className="page-kicker">{view === 'all' ? 'Library' : 'This computer'}</p>
+              <h1 className="pane-title">{view === 'all' ? 'All files' : selectedDevice?.name || 'Pick a computer'}</h1>
+              <nav className="crumbs" aria-label="Folder">
                 <button type="button" className="crumb" onClick={() => setPath('')}>
-                  {view === 'all' ? 'Library' : 'Storage'}
+                  {view === 'all' ? 'Everywhere' : 'Files'}
                 </button>
                 {path.split('/').filter(Boolean).map((seg, i, arr) => {
                   const p = arr.slice(0, i + 1).join('/')
@@ -631,8 +627,8 @@ export default function NodeApp() {
               {view === 'node' && (
                 <>
                   <button type="button" className="secondary" disabled={!selectedDevice?.online} onClick={onMkdir}>New folder</button>
-                  <button type="button" className="secondary" disabled={!selectedDevice?.online} onClick={() => void pickAndUpload()}>
-                    Upload
+                  <button type="button" disabled={!selectedDevice?.online} onClick={() => void pickAndUpload()}>
+                    Upload files
                   </button>
                 </>
               )}
@@ -644,7 +640,7 @@ export default function NodeApp() {
                     onChange={(e) => setNodeFilter(e.target.value)}
                     aria-label="Filter by node"
                   >
-                    <option value="">All nodes</option>
+                    <option value="">Every computer</option>
                     {devices.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
@@ -699,30 +695,34 @@ export default function NodeApp() {
 
           {error && <p className="banner-err">{error}</p>}
           {view === 'node' && selectedCompute && (
-            <div className="compute-card">
-              <div className="compute-card-head">
-                <strong>Compute</strong>
-                <span className={`badge ${selectedCompute.status === 'available' ? 'online' : selectedCompute.status === 'stale' ? 'stale' : 'offline'}`}>
-                  {selectedCompute.status === 'available' ? '🟢 Available' : selectedCompute.status === 'stale' ? '🟡 Stale' : '⚪ Offline'}
-                </span>
+            <div className="metric-row">
+              <div className="metric">
+                <span className="lbl">Status</span>
+                <span className="val">{selectedDevice?.online ? 'Connected' : 'Offline'}</span>
               </div>
-              <dl className="compute-dl compact">
-                <div><dt>CPU</dt><dd>{selectedCompute.cpu ? `${selectedCompute.cpu.cores} cores` : '—'}</dd></div>
-                <div><dt>RAM</dt><dd>{selectedCompute.memory?.total_bytes ? formatBytes(selectedCompute.memory.total_bytes) : '—'}</dd></div>
-                <div><dt>GPU</dt><dd>{selectedCompute.gpu == null ? 'unavailable' : (selectedCompute.gpu[0] ? `${selectedCompute.gpu[0].vendor} ${selectedCompute.gpu[0].model}`.trim() : 'none')}</dd></div>
-                <div><dt>Storage</dt><dd>{selectedCompute.disks?.length ? `${formatBytes(selectedCompute.disks.reduce((n, x) => n + x.free_bytes, 0))} free` : '—'}</dd></div>
-              </dl>
-              <p className="muted" style={{ margin: '0.4rem 0 0' }}>
-                Last telemetry: {formatAgo(selectedCompute.last_telemetry_at)}
-                {selectedCompute.agent_version ? ` · agent ${selectedCompute.agent_version}` : ''}
-              </p>
+              <div className="metric">
+                <span className="lbl">Processor</span>
+                <span className="val">{selectedCompute.cpu ? `${selectedCompute.cpu.cores} cores` : '—'}</span>
+              </div>
+              <div className="metric">
+                <span className="lbl">Memory</span>
+                <span className="val">{selectedCompute.memory?.total_bytes ? formatBytes(selectedCompute.memory.total_bytes) : '—'}</span>
+              </div>
+              <div className="metric">
+                <span className="lbl">Free disk</span>
+                <span className="val">{selectedCompute.disks?.length ? formatBytes(selectedCompute.disks.reduce((n, x) => n + x.free_bytes, 0)) : '—'}</span>
+              </div>
             </div>
           )}
           {view === 'node' && selectedDevice && !selectedDevice.online && (
-            <p className="banner-warn">This node is offline.</p>
+            <p className="banner-warn">This computer is asleep or offline. Wake it, then wait a few seconds.</p>
           )}
           {view === 'node' && selectedDevice?.online && (
-            <p className="drop-zone-hint">Drop files from Finder here · drag a file onto another node to transfer</p>
+            <div className="hint-row">
+              <span className="hint-chip">Drop files here to upload</span>
+              <span className="hint-chip">Drag a file onto another computer in the list to send it</span>
+              <span className="hint-chip">Right-click a file for Open, Download, Send</span>
+            </div>
           )}
 
           <div className="file-table">
@@ -791,10 +791,35 @@ export default function NodeApp() {
             ))}
 
             {((view === 'node' && !visibleNode.length) || (view === 'all' && !visibleAll.length)) && (
-              <div className="empty-files">
-                {view === 'all'
-                  ? (searchQ ? 'No matching files in the index.' : 'No files in this folder. Refresh after nodes come online.')
-                  : 'Empty. Drop files from Finder or bring from another node.'}
+              <div className="empty-state">
+                {devices.length === 0 ? (
+                  <>
+                    <h2>Nothing to show yet</h2>
+                    <p>Node is the panel. Files live on computers you add — a home Mac, a PC, or another server.</p>
+                    <Link to="/computers"><button type="button">Add a computer</button></Link>
+                  </>
+                ) : view === 'all' ? (
+                  <>
+                    <h2>{searchQ ? 'No files match that search' : 'This folder is empty'}</h2>
+                    <p>
+                      {searchQ
+                        ? 'Try another word, or open a computer on the left and browse its folders.'
+                        : 'Open a computer on the left, or upload files after you pick one.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2>{path ? 'This folder is empty' : 'No files here yet'}</h2>
+                    <p>
+                      {selectedDevice?.online
+                        ? 'Upload from this browser, drop files onto this page, or send a file from another computer.'
+                        : 'This computer is offline, so Node cannot list its files until it comes back.'}
+                    </p>
+                    {selectedDevice?.online && (
+                      <button type="button" onClick={() => void pickAndUpload()}>Upload files</button>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -802,9 +827,9 @@ export default function NodeApp() {
       </div>
 
       <footer className="transfers-dock">
-        <div className="dock-label">Transfers & queues</div>
+        <div className="dock-label">Transfers</div>
         {!activeQueue.length && !activeTransfers.length && (
-          <p className="muted dock-empty">Upload, download, and cross-node transfers show up here.</p>
+          <p className="muted dock-empty">Uploads, downloads, and files sent between computers show up here.</p>
         )}
         <ul className="xfer-list">
           {activeQueue.map((q) => (
@@ -850,7 +875,7 @@ export default function NodeApp() {
             <>
               <li><button type="button" onClick={() => { const e = ctx.entries[0]; const id = view === 'all' ? (e as AllFile).device_id : selectedId!; void onPreview(e, id); setCtx(null) }}>Open</button></li>
               <li><button type="button" onClick={() => { const e = ctx.entries[0]; const id = view === 'all' ? (e as AllFile).device_id : selectedId!; void onDownload(e, id); setCtx(null) }}>Download</button></li>
-              <li><button type="button" onClick={() => { const e = ctx.entries[0]; const id = view === 'all' ? (e as AllFile).device_id : selectedId!; onSendToNode(e, id); setCtx(null) }}>Send to node…</button></li>
+              <li><button type="button" onClick={() => { const e = ctx.entries[0]; const id = view === 'all' ? (e as AllFile).device_id : selectedId!; onSendToNode(e, id); setCtx(null) }}>Send to another computer…</button></li>
               <li><button type="button" onClick={() => { const e = ctx.entries[0]; const id = view === 'all' ? (e as AllFile).device_id : selectedId!; onCopy(e, id); setCtx(null) }}>Copy</button></li>
             </>
           )}
@@ -896,8 +921,8 @@ export default function NodeApp() {
       {conflictAsk && (
         <div className="modal-back">
           <div className="modal conflict" onClick={(e) => e.stopPropagation()}>
-            <h2>Name conflict</h2>
-            <p className="muted">A file with this name already exists. What should Node do?</p>
+            <h2>Same name already exists</h2>
+            <p className="muted">A file with this name is already in that folder. What should Node do?</p>
             <div className="row">
               <button type="button" onClick={() => {
                 const ask = conflictAsk
@@ -920,6 +945,6 @@ export default function NodeApp() {
           <div key={t.id} className={`toast ${t.tone}`}>{t.text}</div>
         ))}
       </div>
-    </div>
+    </Chrome>
   )
 }

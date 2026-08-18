@@ -1,5 +1,6 @@
-import { Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
-import { getToken, setToken } from './lib/client'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { getToken } from './lib/client'
+import Chrome from './components/Chrome'
 import Login from './pages/Login'
 import NodeApp from './shell/NodeApp'
 import Credentials from './pages/Credentials'
@@ -8,42 +9,20 @@ import Settings from './pages/Settings'
 import Sync from './pages/Sync'
 import Services from './pages/Services'
 import Compute from './pages/Compute'
+import Devices from './pages/Devices'
 
 function RequireAuth() {
   if (!getToken()) return <Navigate to="/login" replace />
   return <Outlet />
 }
 
-function AdminShell() {
-  const nav = useNavigate()
+function SettingsShell() {
   return (
-    <div className="admin-shell">
-      <header className="admin-bar">
-        <a className="brand-mark" href="/">Node</a>
-        <nav>
-          <a href="/">Files</a>
-          <a href="/settings">Settings</a>
-          <a href="/settings/sync">Sync</a>
-          <a href="/settings/services">Services</a>
-          <a href="/settings/compute">Compute</a>
-          <a href="/settings/credentials">Credentials</a>
-          <a href="/settings/activity">Activity</a>
-        </nav>
-        <button
-          type="button"
-          className="ghost"
-          onClick={() => {
-            setToken(null)
-            nav('/login')
-          }}
-        >
-          Log out
-        </button>
-      </header>
+    <Chrome>
       <main className="admin-main">
         <Outlet />
       </main>
-    </div>
+    </Chrome>
   )
 }
 
@@ -53,7 +32,14 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<NodeApp />} />
-        <Route element={<AdminShell />}>
+        <Route path="/computers" element={
+          <Chrome>
+            <main className="admin-main">
+              <Devices />
+            </main>
+          </Chrome>
+        } />
+        <Route element={<SettingsShell />}>
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/sync" element={<Sync />} />
           <Route path="/settings/services" element={<Services />} />

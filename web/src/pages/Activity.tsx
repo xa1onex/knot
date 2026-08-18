@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 type Event = {
   id: string
@@ -23,8 +24,11 @@ export default function Activity() {
 
   return (
     <div>
-      <h1>Activity</h1>
-      <p className="muted">Audit log of control-plane actions.</p>
+      <PageHeader
+        kicker="Audit"
+        title="What happened"
+        description="A log of sign-ins, updates, and other actions on this panel. Useful if something looks unexpected."
+      />
       {error && <div className="error">{error}</div>}
       <table className="table">
         <thead>
@@ -48,7 +52,7 @@ export default function Activity() {
           ))}
           {events.length === 0 && (
             <tr>
-              <td colSpan={5} className="muted">No activity yet.</td>
+              <td colSpan={5} className="muted">Nothing logged yet. Using Files and Settings will fill this in.</td>
             </tr>
           )}
         </tbody>

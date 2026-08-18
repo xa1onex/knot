@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ComputeDevice, ComputeJob } from '@node-infra/client'
 import { createClient } from '../lib/client'
 import { formatAgo, formatBytes } from '../lib/format'
+import PageHeader from '../components/PageHeader'
 
 function gpuLabel(d: ComputeDevice): string {
   if (d.gpu === null || d.gpu === undefined) return 'unavailable'
@@ -58,8 +59,11 @@ export default function Compute() {
 
   return (
     <div>
-      <h1>Compute</h1>
-      <p className="muted">Hardware inventory from the last agent telemetry snapshot. Jobs without a device are placed by the scheduler from CPU/RAM/GPU/disk and labels.</p>
+      <PageHeader
+        kicker="Hardware"
+        title="What each computer can do"
+        description="CPU, memory, and disk from the last time that computer checked in. Jobs below are one-off tasks Node ran on a machine."
+      />
       {error && <div className="error">{error}</div>}
 
       {list.map((d) => (
@@ -93,11 +97,16 @@ export default function Compute() {
           )}
         </div>
       ))}
-      {list.length === 0 && !error && <p className="muted" style={{ marginTop: '1.25rem' }}>No nodes yet. Register an agent to populate the registry.</p>}
+      {list.length === 0 && !error && (
+        <div className="empty-state">
+          <h2>No hardware reports yet</h2>
+          <p>Add a computer and wait a few seconds. It will show CPU, memory, and free disk here.</p>
+        </div>
+      )}
 
-      <h2 style={{ fontSize: '1.15rem', marginTop: '2rem' }}>Jobs</h2>
-      <p className="muted">One-shot containers. Omit device_id to let the scheduler pick a node.</p>
-      {jobs.length === 0 && <p className="muted">No jobs yet.</p>}
+      <h2 style={{ fontSize: '1.2rem', marginTop: '2rem' }}>Jobs</h2>
+      <p className="muted">One-off tasks Node ran (or will run) on a computer.</p>
+      {jobs.length === 0 && <p className="muted">No jobs yet — that is normal if you only use Files.</p>}
       {jobs.map((j) => (
         <div key={j.id} className="panel" style={{ marginTop: '0.75rem' }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>

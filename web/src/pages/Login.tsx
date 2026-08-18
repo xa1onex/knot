@@ -4,8 +4,8 @@ import { createClient, setToken } from '../lib/client'
 
 export default function Login() {
   const nav = useNavigate()
-  const [email, setEmail] = useState('admin@node.local')
-  const [password, setPassword] = useState('admin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -19,7 +19,7 @@ export default function Login() {
       setToken(res.access_token || res.token || '')
       nav('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'login failed')
+      setError(err instanceof Error ? err.message : 'Could not sign in. Check email and password.')
     } finally {
       setBusy(false)
     }
@@ -27,12 +27,19 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <div className="glass-blobs" aria-hidden />
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand-mark login-brand">Node</div>
-        <p className="login-lead">Your devices. Your files. One network.</p>
+        <p className="login-lead">Sign in to open files on your computers — Mac, PC, or the server this panel runs on.</p>
         <div className="field">
           <label htmlFor="email">Email</label>
-          <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+          <input
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            placeholder="you@example.com"
+          />
         </div>
         <div className="field">
           <label htmlFor="password">Password</label>
@@ -42,10 +49,14 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            placeholder="The password you set at install"
           />
         </div>
-        <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Open Node'}</button>
+        <button type="submit" disabled={busy || !email || !password}>
+          {busy ? 'Signing in…' : 'Open Node'}
+        </button>
         {error && <div className="error">{error}</div>}
+        <p className="help-note">First time? This is the email and password you typed when you installed the Main Node.</p>
       </form>
     </div>
   )

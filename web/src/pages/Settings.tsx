@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 
 type UpdateComponentStatus = {
   component: string
@@ -25,10 +27,18 @@ type FleetUpdateStatus = {
   devices: DeviceUpdateStatus[]
 }
 
+function versionLine(st?: UpdateComponentStatus) {
+  const cur = st?.current_ref
+  const latest = st?.latest_ref
+  if (!cur && !latest) return 'Version not reported yet'
+  if (st?.available) return `A newer version is ready (${latest})`
+  return `On the latest version (${cur})`
+}
+
 export default function Settings() {
   const desktop = typeof window !== 'undefined' ? window.nodeDesktop : undefined
   const [apiUrl, setApiUrl] = useState(
-    import.meta.env.VITE_API_URL || (desktop ? '…' : 'same-origin via Vite proxy (/v1 → knotd)'),
+    import.meta.env.VITE_API_URL || (desktop ? '…' : window.location.origin),
   )
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
@@ -48,7 +58,7 @@ export default function Settings() {
   useEffect(() => {
     api<FleetUpdateStatus>('/v1/system/update')
       .then(setUpdates)
-      .catch((e) => setUpdateMsg(e instanceof Error ? e.message : 'Failed to load updates'))
+      .catch((e) => setUpdateMsg(e instanceof Error ? e.message : 'Could not check for updates'))
   }, [])
 
   async function saveApiUrl() {
@@ -59,7 +69,7 @@ export default function Settings() {
       const next = await desktop.setApiUrl(draft.trim())
       setApiUrl(next)
       setDraft(next)
-      setMsg('Saved. Reloading against the new Control Plane…')
+      setMsg('Saved. Reloading against the new server…')
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Failed to save')
     } finally {
@@ -72,7 +82,7 @@ export default function Settings() {
     try {
       setUpdates(await api<FleetUpdateStatus>('/v1/system/update'))
     } catch (e) {
-      setUpdateMsg(e instanceof Error ? e.message : 'Failed to load updates')
+      setUpdateMsg(e instanceof Error ? e.message : 'Could not check for updates')
     }
   }
 
@@ -81,7 +91,7 @@ export default function Settings() {
     setUpdateMsg('')
     try {
       await api('/v1/system/update/control-plane', { method: 'POST' })
-      setUpdateMsg('Control plane update started. The panel may reload during restart.')
+      setUpdateMsg('Updating the panel. This page may reload in a few seconds.')
       await refreshUpdates()
     } catch (e) {
       setUpdateMsg(e instanceof Error ? e.message : 'Update failed')
@@ -95,7 +105,7 @@ export default function Settings() {
     setUpdateMsg('')
     try {
       await api(`/v1/system/update/devices/${deviceID}`, { method: 'POST' })
-      setUpdateMsg('Device update started.')
+      setUpdateMsg('Updating that computer. It may disconnect for a moment.')
       await refreshUpdates()
     } catch (e) {
       setUpdateMsg(e instanceof Error ? e.message : 'Update failed')
@@ -104,93 +114,135 @@ export default function Settings() {
     }
   }
 
+  const cp = updates?.control_plane
+
   return (
     <div>
-      <h1>Settings</h1>
-      <p className="muted">Account and control-plane details. Day-to-day file work lives on the main Files screen.</p>
+      <PageHeader
+        kicker="Settings"
+        title="Keep Node in good shape"
+        description="Update the panel, add computers, or open extras like folder sync and API keys. Day-to-day file work stays on Files."
+      />
+
+      <div className="card-grid">
+        <Link to="/computers" className="card-link">
+          <strong>Computers</strong>
+          <span>See who is online and add a home Mac or PC with a join code.</span>
+          <div className="go">Open →</div>
+        </Link>
+        <Link to="/settings/sync" className="card-link">
+          <strong>Folder sync</strong>
+          <span>Keep the same folder in step on two computers. You choose if both copies change.</span>
+          <div className="go">Open →</div>
+        </Link>
+        <Link to="/settings/services" className="card-link">
+          <strong>Websites</strong>
+          <span>Point a hostname at an app running on one of your computers.</span>
+          <div className="go">Open →</div>
+        </Link>
+        <Link to="/settings/credentials" className="card-link">
+          <strong>API keys</strong>
+          <span>For the command line or another app. Not needed to use this panel.</span>
+          <div className="go">Open →</div>
+        </Link>
+      </div>
+
+      <div className="panel">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <div>
+            <p className="page-kicker" style={{ marginBottom: '0.35rem' }}>Software</p>
+            <h2 style={{ fontSize: '1.25rem' }}>Updates</h2>
+            <p className="muted" style={{ marginTop: '0.35rem' }}>
+              Node checks GitHub for a newer version. Update the panel (this website) separately from each computer’s agent.
+            </p>
+          </div>
+          <button type="button" className="ghost" onClick={() => void refreshUpdates()}>Check again</button>
+        </div>
+        {updateMsg && <p className="help-note">{updateMsg}</p>}
+        {updates && (
+          <>
+            <div className="update-row">
+              <div>
+                <h3>This panel (Main Node)</h3>
+                <p className="muted version-meta">{versionLine(cp)}</p>
+                {cp?.error && <div className="error">{cp.error}</div>}
+              </div>
+              <div>
+                {cp?.available ? (
+                  <button
+                    type="button"
+                    disabled={!cp.can_apply || updating === 'control-plane'}
+                    onClick={() => void applyControlPlane()}
+                  >
+                    {updating === 'control-plane' ? 'Updating…' : 'Update panel'}
+                  </button>
+                ) : (
+                  <span className="status-pill ready">Up to date</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.05rem', marginTop: '0.5rem' }}>Computers</h3>
+              {!updates.devices.length && (
+                <p className="muted" style={{ marginTop: '0.5rem' }}>
+                  No extra computers yet. <Link to="/computers">Add one</Link> to update agents from here.
+                </p>
+              )}
+              {updates.devices.map((d) => (
+                <div key={d.device_id} className="update-row">
+                  <div>
+                    <h3>{d.name}</h3>
+                    <p className="muted version-meta">
+                      {d.online ? 'Connected' : 'Offline — turn it on to update'} · {versionLine(d.status)}
+                    </p>
+                    {(d.error || d.status?.error) && <div className="error">{d.error || d.status?.error}</div>}
+                  </div>
+                  <div>
+                    {d.status?.available && d.online ? (
+                      <button
+                        type="button"
+                        disabled={!d.status.can_apply || updating === d.device_id}
+                        onClick={() => void applyDevice(d.device_id)}
+                      >
+                        {updating === d.device_id ? 'Updating…' : 'Update this computer'}
+                      </button>
+                    ) : (
+                      <span className={`status-pill ${d.online ? 'ready' : 'offline'}`}>
+                        {d.online ? (d.status?.available ? 'Update ready' : 'Up to date') : 'Offline'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <div className="muted">API URL</div>
+        <p className="page-kicker" style={{ marginBottom: '0.35rem' }}>Connection</p>
+        <h2 style={{ fontSize: '1.15rem' }}>Server address</h2>
         {desktop ? (
           <>
+            <p className="muted">The desktop app talks to this URL. Change it only if you moved the Main Node.</p>
             <input
               className="mono"
-              style={{ marginTop: '0.4rem', width: '100%', maxWidth: 480, padding: '0.5rem' }}
+              style={{ marginTop: '0.6rem', maxWidth: 480 }}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="http://127.0.0.1:8787"
+              placeholder="https://your-server:4443"
             />
-            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="row" style={{ marginTop: '0.75rem' }}>
               <button type="button" disabled={saving || draft.trim() === apiUrl} onClick={() => void saveApiUrl()}>
                 Save
               </button>
               {msg && <span className="muted">{msg}</span>}
             </div>
-            <p className="muted" style={{ marginTop: '0.75rem' }}>
-              Desktop proxies <code>/v1</code> to this Control Plane. Also: menu → Control Plane URL… or{' '}
-              <code>~/.node-desktop.json</code>.
-            </p>
           </>
         ) : (
-          <div className="mono" style={{ marginTop: '0.4rem' }}>{apiUrl}</div>
-        )}
-        <p className="muted" style={{ marginTop: '1rem' }}>
-          Product: <strong>Node</strong>. CLI / repo codename: <strong>knot</strong>.
-          {desktop ? ` · Desktop (${desktop.platform})` : ''}
-        </p>
-      </div>
-      <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-          <div>
-            <div className="muted">Self-update</div>
-            <p className="muted" style={{ marginTop: '0.4rem' }}>Checks the repo and lets Node update itself when a newer commit exists.</p>
-          </div>
-          <button type="button" className="ghost" onClick={() => void refreshUpdates()}>Refresh</button>
-        </div>
-        {updateMsg && <div className="muted" style={{ marginTop: '0.75rem' }}>{updateMsg}</div>}
-        {updates && (
-          <>
-            <div style={{ marginTop: '1rem' }}>
-              <strong>Main Node</strong>
-              <div className="muted" style={{ marginTop: '0.35rem' }}>
-                Current: <span className="mono">{updates.control_plane.current_ref || 'unknown'}</span>
-                {' · '}Latest: <span className="mono">{updates.control_plane.latest_ref || 'unknown'}</span>
-              </div>
-              {updates.control_plane.error && <div className="error" style={{ marginTop: '0.5rem' }}>{updates.control_plane.error}</div>}
-              <div style={{ marginTop: '0.75rem' }}>
-                <button
-                  type="button"
-                  disabled={!updates.control_plane.available || !updates.control_plane.can_apply || updating === 'control-plane'}
-                  onClick={() => void applyControlPlane()}
-                >
-                  {updating === 'control-plane' ? 'Updating…' : updates.control_plane.available ? 'Update Main Node' : 'Up to date'}
-                </button>
-              </div>
-            </div>
-            <div style={{ marginTop: '1.25rem' }}>
-              <strong>Devices</strong>
-              <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.75rem' }}>
-                {updates.devices.map((d) => (
-                  <div key={d.device_id} style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
-                    <div><strong>{d.name}</strong> <span className="muted">({d.online ? 'online' : 'offline'})</span></div>
-                    <div className="muted" style={{ marginTop: '0.35rem' }}>
-                      Current: <span className="mono">{d.status?.current_ref || 'unknown'}</span>
-                      {' · '}Latest: <span className="mono">{d.status?.latest_ref || 'unknown'}</span>
-                    </div>
-                    {(d.error || d.status?.error) && <div className="error" style={{ marginTop: '0.5rem' }}>{d.error || d.status?.error}</div>}
-                    <div style={{ marginTop: '0.75rem' }}>
-                      <button
-                        type="button"
-                        disabled={!d.status?.available || !d.status?.can_apply || updating === d.device_id}
-                        onClick={() => void applyDevice(d.device_id)}
-                      >
-                        {updating === d.device_id ? 'Updating…' : d.status?.available ? 'Update Device' : 'Up to date'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+          <p className="muted" style={{ marginTop: '0.4rem' }}>
+            You are already on this panel: <span className="mono">{apiUrl}</span>
+          </p>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Credential } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const SCOPE_OPTIONS = [
   'devices.read',
@@ -74,12 +75,16 @@ export default function CredentialsPage() {
 
   return (
     <div>
-      <h1>Credentials</h1>
-      <p className="muted">Scoped API tokens for CLI, MCP, and external AI clients.</p>
+      <PageHeader
+        kicker="Access"
+        title="API keys"
+        description="Only if another program (CLI, MCP, a script) should talk to Node. You do not need a key to use this website."
+      />
       {error && <div className="error">{error}</div>}
 
       <div className="panel" style={{ marginTop: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.1rem' }}>Create credential</h2>
+        <h2 style={{ fontSize: '1.15rem' }}>Create a key</h2>
+        <p className="muted">Give it a name you will recognize, pick what it may do, then copy the secret once.</p>
         <div className="field">
           <label>Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Claude-Code-Project-A" />
@@ -101,7 +106,7 @@ export default function CredentialsPage() {
           </div>
         </div>
         <div className="field">
-          <label>TTL (days)</label>
+          <label>How long it lasts (days)</label>
           <input
             type="number"
             style={{ maxWidth: 120 }}
@@ -110,11 +115,11 @@ export default function CredentialsPage() {
           />
         </div>
         <button type="button" onClick={create} disabled={!name || scopes.length === 0}>
-          Create
+          Create key
         </button>
         {createdToken && (
           <div className="token-once">
-            <div className="muted">Token shown once:</div>
+            <div className="muted">Copy now — Node will not show this secret again:</div>
             <div className="mono" style={{ marginTop: '0.4rem' }}>{createdToken}</div>
           </div>
         )}
