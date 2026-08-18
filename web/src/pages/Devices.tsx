@@ -58,7 +58,7 @@ export default function Devices() {
         liveLabel={online ? `${online} connected` : 'No computers yet'}
         title="Computers"
         description="These are the machines Node can open files on. This panel lives on your server; a home Mac or PC joins with a one-time code."
-        actions={<Link to="/" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>Open Files</Link>}
+        actions={<Link to="/files" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>Open files</Link>}
       />
       {error && <div className="error">{error}</div>}
 

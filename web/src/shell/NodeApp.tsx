@@ -12,7 +12,7 @@ import type { ComputeDevice, Device, StorageEntry, Transfer } from '@node-infra/
 import { createClient, putLocalFile, type ConflictMode } from '../lib/client'
 import { formatBytes, formatEta, formatWhen, joinPath, parentPath } from '../lib/format'
 import { newQueueId, type QueueItem } from '../lib/queue'
-import Chrome from '../components/Chrome'
+import DashboardShell, { PageHero } from './DashboardShell'
 
 type DragPayload = {
   fromDeviceId: string
@@ -536,17 +536,13 @@ export default function NodeApp() {
   )
 
   return (
-    <Chrome
-      fill
-      search={
-        <input
-          placeholder={view === 'all' ? 'Search files on every computer…' : 'Find a file in this folder…'}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          aria-label={view === 'all' ? 'Search all files' : 'Filter files'}
-        />
-      }
-    >
+    <DashboardShell wide>
+      <PageHero
+        live={devices.some((d) => d.online)}
+        liveLabel={devices.some((d) => d.online) ? 'Live' : 'Waiting'}
+        title="Files on your computers"
+        description="Pick a computer on the left. Open a folder, upload, or drag a file onto another computer to send it there."
+      />
       <div className="workspace">
         <aside className="nodes-rail">
           <div className="rail-label">Where to look</div>
@@ -624,6 +620,13 @@ export default function NodeApp() {
               </nav>
             </div>
             <div className="file-actions">
+              <input
+                className="max-w-64"
+                placeholder={view === 'all' ? 'Search every computer…' : 'Find in this folder…'}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                aria-label="Search files"
+              />
               {view === 'node' && (
                 <>
                   <button type="button" className="secondary" disabled={!selectedDevice?.online} onClick={onMkdir}>New folder</button>
@@ -945,6 +948,6 @@ export default function NodeApp() {
           <div key={t.id} className={`toast ${t.tone}`}>{t.text}</div>
         ))}
       </div>
-    </Chrome>
+    </DashboardShell>
   )
 }

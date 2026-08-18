@@ -1,7 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { getToken } from './lib/client'
-import Chrome from './components/Chrome'
 import Login from './pages/Login'
+import Overview from './pages/Overview'
 import NodeApp from './shell/NodeApp'
 import Credentials from './pages/Credentials'
 import Activity from './pages/Activity'
@@ -10,19 +10,18 @@ import Sync from './pages/Sync'
 import Services from './pages/Services'
 import Compute from './pages/Compute'
 import Devices from './pages/Devices'
+import DashboardShell from './shell/DashboardShell'
 
 function RequireAuth() {
   if (!getToken()) return <Navigate to="/login" replace />
   return <Outlet />
 }
 
-function SettingsShell() {
+function PageFrame() {
   return (
-    <Chrome>
-      <main className="admin-main">
-        <Outlet />
-      </main>
-    </Chrome>
+    <DashboardShell>
+      <Outlet />
+    </DashboardShell>
   )
 }
 
@@ -31,15 +30,10 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<NodeApp />} />
-        <Route path="/computers" element={
-          <Chrome>
-            <main className="admin-main">
-              <Devices />
-            </main>
-          </Chrome>
-        } />
-        <Route element={<SettingsShell />}>
+        <Route path="/" element={<Overview />} />
+        <Route path="/files" element={<NodeApp />} />
+        <Route element={<PageFrame />}>
+          <Route path="/computers" element={<Devices />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/sync" element={<Sync />} />
           <Route path="/settings/services" element={<Services />} />

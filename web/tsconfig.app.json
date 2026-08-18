@@ -20,6 +20,7 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/*"],
       "@node-infra/client": ["../sdk/js/src/index.ts"]
     }
   },

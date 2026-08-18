@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createClient, setToken } from '../lib/client'
+import { Button } from '@/components/ui/button'
+import { createClient, setToken } from '@/lib/client'
 
 export default function Login() {
   const nav = useNavigate()
@@ -18,46 +19,56 @@ export default function Login() {
       const res = await cl.login(email, password)
       setToken(res.access_token || res.token || '')
       nav('/')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sign in. Check email and password.')
+    } catch {
+      setError('Could not sign in. Use the email and password you set when installing Node.')
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <div className="login-page">
-      <div className="glass-blobs" aria-hidden />
-      <form className="login-card" onSubmit={onSubmit}>
-        <div className="brand-mark login-brand">Node</div>
-        <p className="login-lead">Sign in to open files on your computers — Mac, PC, or the server this panel runs on.</p>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-            placeholder="you@example.com"
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            placeholder="The password you set at install"
-          />
-        </div>
-        <button type="submit" disabled={busy || !email || !password}>
-          {busy ? 'Signing in…' : 'Open Node'}
-        </button>
-        {error && <div className="error">{error}</div>}
-        <p className="help-note">First time? This is the email and password you typed when you installed the Main Node.</p>
-      </form>
-    </div>
+    <main className="relative min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-foreground/[0.035] blur-[140px]" />
+        <div className="absolute bottom-0 right-0 h-[360px] w-[360px] rounded-full bg-foreground/[0.025] blur-[120px]" />
+      </div>
+      <div className="relative flex min-h-screen items-center justify-center px-6">
+        <form
+          onSubmit={onSubmit}
+          className="w-full max-w-md space-y-6 rounded-2xl border border-border/40 bg-background/60 p-8 backdrop-blur"
+        >
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40">Node</p>
+            <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
+            <p className="text-foreground/70">
+              This opens the panel for your computers and files. Nothing here is public.
+            </p>
+          </div>
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium text-foreground/70">Email</span>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              placeholder="you@example.com"
+            />
+          </label>
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium text-foreground/70">Password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              placeholder="The password from install"
+            />
+          </label>
+          <Button type="submit" className="w-full" disabled={busy || !email || !password}>
+            {busy ? 'Signing in…' : 'Open Node'}
+          </Button>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </form>
+      </div>
+    </main>
   )
 }
