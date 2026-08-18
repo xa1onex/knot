@@ -42,6 +42,7 @@ type Hub struct {
 	Deploy    DeployHandler
 	Jobs      JobsHandler
 	Builds    BuildsHandler
+	Updates   UpdatesHandler
 	Logs      *oplogs.Service
 	mu        sync.Mutex
 	conns     map[string]*websocket.Conn
@@ -127,8 +128,16 @@ type BuildsHandler interface {
 	OnDeviceDisconnect(deviceID string)
 }
 
+type UpdatesHandler interface {
+	HandleAgentMessage(ctx context.Context, fromDeviceID string, envelopeType string, raw []byte) error
+}
+
 func (h *Hub) SetBuilds(b BuildsHandler) {
 	h.Builds = b
+}
+
+func (h *Hub) SetUpdates(u UpdatesHandler) {
+	h.Updates = u
 }
 
 func (h *Hub) IsOnline(deviceID string) bool {
@@ -356,6 +365,13 @@ func (h *Hub) HandleConnect(w http.ResponseWriter, r *http.Request) {
 			}
 			if err := h.Builds.HandleAgentMessage(r.Context(), id.DeviceID, envelope.Type, data); err != nil {
 				log.Printf("build frame from %s: %v", id.DeviceID, err)
+			}
+		case protocol.TypeUpdateCheckResult, protocol.TypeUpdateApplyResult:
+			if h.Updates == nil {
+				continue
+			}
+			if err := h.Updates.HandleAgentMessage(r.Context(), id.DeviceID, envelope.Type, data); err != nil {
+				log.Printf("update frame from %s: %v", id.DeviceID, err)
 			}
 		case protocol.TypeOfflinePending:
 			h.handleOfflinePending(r.Context(), id.UserID, id.DeviceID, data)

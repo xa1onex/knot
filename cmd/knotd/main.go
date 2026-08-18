@@ -34,6 +34,7 @@ import (
 	"github.com/knot-infra/knot/internal/storage"
 	"github.com/knot-infra/knot/internal/store"
 	syncjob "github.com/knot-infra/knot/internal/sync"
+	"github.com/knot-infra/knot/internal/selfupdate"
 	"github.com/knot-infra/knot/internal/traffic"
 	"github.com/knot-infra/knot/internal/transfers"
 	"github.com/knot-infra/knot/internal/webui"
@@ -126,6 +127,8 @@ func main() {
 	opsSvc := ops.New(st, edgeProxy, trafSvc, logsSvc)
 	wfSvc := workflows.New(st, opsSvc, trafSvc, relSvc, buildsSvc, jobsSvc, filesSvc, storageSvc, edgeProxy, logsSvc, auditLog)
 	planSvc := plans.New(st, opsSvc, trafSvc, relSvc, buildsSvc, jobsSvc, filesSvc, storageSvc, edgeProxy, logsSvc, auditLog)
+	updateSvc := selfupdate.New(st, hub, cfg)
+	hub.SetUpdates(updateSvc)
 	aiSvc := aisessions.New(st, authSvc)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -158,6 +161,7 @@ func main() {
 		Jobs:         jobsSvc,
 		Logs:         logsSvc,
 		Ops:          opsSvc,
+		Updates:      updateSvc,
 		Workflows:    wfSvc,
 		Plans:        planSvc,
 		AI:           aiSvc,

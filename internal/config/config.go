@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const defaultUserSessionTTL = 10 * 365 * 24 * time.Hour
+
 type Config struct {
 	HTTPAddr            string
 	DatabasePath        string
@@ -52,7 +54,9 @@ func Load() Config {
 		BootstrapAdminEmail: os.Getenv("KNOT_BOOTSTRAP_ADMIN"),
 		BootstrapAdminPass:  os.Getenv("KNOT_BOOTSTRAP_PASSWORD"),
 		HeartbeatTimeout:    durationEnv("KNOT_HEARTBEAT_TIMEOUT", 45*time.Second),
-		AccessTokenTTL:      durationEnv("KNOT_ACCESS_TOKEN_TTL", time.Hour),
+		// Human operator sessions are intended to feel persistent.
+		// They remain valid until logout unless an operator overrides the TTL.
+		AccessTokenTTL:      durationEnv("KNOT_ACCESS_TOKEN_TTL", defaultUserSessionTTL),
 		RefreshTokenTTL:     durationEnv("KNOT_REFRESH_TOKEN_TTL", 30*24*time.Hour),
 		DeviceSessionTTL:    durationEnv("KNOT_DEVICE_SESSION_TTL", 24*time.Hour),
 		CORSOrigin:          corsOrigin(),

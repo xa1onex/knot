@@ -4,6 +4,10 @@ web/dist/
 sdk/js/node_modules/
 sdk/js/dist/
 bin/
+/knotd
+/knot-agent
+/knot
+/knot-mcp
 data/
 *.db
 .DS_Store

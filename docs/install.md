@@ -66,6 +66,7 @@ Login:    you@example.com
 ```
 
 Open that URL from your phone. This is the UI. It stays on the VPS so it works even when the home PC is asleep.
+By default, the browser session stays logged in until you explicitly use **Log out**.
 
 ### 2) Device Node (home PC)
 

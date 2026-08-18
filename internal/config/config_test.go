@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/knot-infra/knot/internal/config"
 )
@@ -63,5 +64,13 @@ func TestLoadCORSFollowsPublicBaseURL(t *testing.T) {
 	cfg := config.Load()
 	if cfg.CORSOrigin != "https://node.example.com" {
 		t.Fatalf("CORSOrigin=%q", cfg.CORSOrigin)
+	}
+}
+
+func TestLoadDefaultAccessTokenTTLIsPersistent(t *testing.T) {
+	t.Setenv("KNOT_ACCESS_TOKEN_TTL", "")
+	cfg := config.Load()
+	if cfg.AccessTokenTTL < 365*24*time.Hour {
+		t.Fatalf("AccessTokenTTL=%s", cfg.AccessTokenTTL)
 	}
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/knot-infra/knot/internal/agent/keystore"
 	"github.com/knot-infra/knot/internal/agent/offline"
 	"github.com/knot-infra/knot/internal/agent/storfs"
+	"github.com/knot-infra/knot/internal/agent/updater"
 	"github.com/knot-infra/knot/internal/agent/xfer"
 	"github.com/knot-infra/knot/pkg/protocol"
 )
@@ -124,7 +125,7 @@ func main() {
 		if ctx.Err() != nil {
 			return
 		}
-		err := runSession(ctx, state, priv, *shareDir, *storageDir, q, scanner, setOnline)
+		err := runSession(ctx, state, priv, *dataDir, *shareDir, *storageDir, q, scanner, setOnline)
 		if ctx.Err() != nil {
 			return
 		}
@@ -196,7 +197,7 @@ func register(controlURL, regToken, name, dataDir, statePath string) (*agentStat
 	return st, nil
 }
 
-func runSession(ctx context.Context, st *agentState, priv ed25519.PrivateKey, shareDir, storageDir string, q *offline.Queue, scanner *offline.Scanner, setOnline func(bool)) error {
+func runSession(ctx context.Context, st *agentState, priv ed25519.PrivateKey, dataDir, shareDir, storageDir string, q *offline.Queue, scanner *offline.Scanner, setOnline func(bool)) error {
 	u, err := url.Parse(st.ControlURL)
 	if err != nil {
 		return err
@@ -287,6 +288,11 @@ func runSession(ctx context.Context, st *agentState, priv ed25519.PrivateKey, sh
 		defer writeMu.Unlock()
 		return conn.WriteJSON(v)
 	}, filepath.Join(storageDir, "builds"))
+	ur := updater.NewManager(dataDir, func(v any) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return conn.WriteJSON(v)
+	})
 	log.Printf("job policy: cpu=%.2f ram=%dMB gpu=%d disk=%dMB pids=%d concurrent=%d",
 		jr.Policy.MaxCPU, jr.Policy.MaxMemoryMB, jr.Policy.MaxGPU, jr.Policy.MaxDiskMB, jr.Policy.MaxPids, jr.Policy.MaxConcurrent)
 
@@ -376,6 +382,8 @@ func runSession(ctx context.Context, st *agentState, priv ed25519.PrivateKey, sh
 				jr.Handle(msg)
 			case protocol.TypeBuildRun, protocol.TypeBuildCancel:
 				br.Handle(msg)
+			case protocol.TypeUpdateCheck, protocol.TypeUpdateApply:
+				ur.Handle(msg)
 			case protocol.TypeOfflineFlushResult:
 				var fr protocol.OfflineFlushResult
 				if json.Unmarshal(msg, &fr) == nil {

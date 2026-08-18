@@ -62,6 +62,11 @@ const (
 	TypeBuildLogLine  = "build_log_line"
 	TypeBuildProgress = "build_progress"
 
+	TypeUpdateCheck       = "update_check"
+	TypeUpdateCheckResult = "update_check_result"
+	TypeUpdateApply       = "update_apply"
+	TypeUpdateApplyResult = "update_apply_result"
+
 	// Stage 7.5 — raw byte stream for TLS passthrough (separate from HTTP framing).
 	TypeEdgeStreamOpen  = "edge_stream_open"
 	TypeEdgeStreamData  = "edge_stream_data"

@@ -29,6 +29,7 @@ import (
 	"github.com/knot-infra/knot/internal/releases"
 	"github.com/knot-infra/knot/internal/secrets"
 	"github.com/knot-infra/knot/internal/services"
+	"github.com/knot-infra/knot/internal/selfupdate"
 	"github.com/knot-infra/knot/internal/storage"
 	"github.com/knot-infra/knot/internal/store"
 	syncjob "github.com/knot-infra/knot/internal/sync"
@@ -63,6 +64,7 @@ type Server struct {
 	Jobs         *jobs.Service
 	Logs         *oplogs.Service
 	Ops          *ops.Service
+	Updates      *selfupdate.Service
 	Workflows    *workflows.Service
 	Plans        *plans.Service
 	AI           *aisessions.Service
@@ -194,6 +196,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/logs/follow", s.withAuth(s.handleLogsFollow, permissions.LogsRead))
 
 	mux.HandleFunc("GET /v1/ops/context", s.withAuthAny(s.handleOpsContext, opsContextScopes()...))
+	mux.HandleFunc("GET /v1/system/update", s.withAuth(s.handleUpdateStatus, permissions.AccountAdmin))
+	mux.HandleFunc("POST /v1/system/update/control-plane", s.withAuth(s.handleUpdateControlPlane, permissions.AccountAdmin))
+	mux.HandleFunc("POST /v1/system/update/devices/{id}", s.withAuth(s.handleUpdateDevice, permissions.AccountAdmin))
 
 	mux.HandleFunc("GET /v1/workflows", s.withAuthAny(s.handleListWorkflows, workflows.RunScopes()...))
 	mux.HandleFunc("POST /v1/workflows/run", s.withAuthAny(s.handleRunWorkflow, workflows.RunScopes()...))

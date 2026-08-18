@@ -251,6 +251,7 @@ build_bins() {
   (
     cd "$KNOT_SRC"
     export CGO_ENABLED=0
+    export GOFLAGS="${GOFLAGS:--buildvcs=false}"
     export PATH="${PATH}"
     if [ "$what" = "all" ]; then
       go build -o bin/knotd ./cmd/knotd
@@ -309,6 +310,7 @@ write_main_env() {
 KNOT_HTTP_ADDR=${KNOT_HTTP_ADDR}
 KNOT_DB_PATH=${KNOT_DATA}/knot.db
 KNOT_STATIC_DIR=${KNOT_DATA}/web
+KNOT_SRC_DIR=${KNOT_DATA}/src
 KNOT_TLS_CERT=${KNOT_TLS_CERT}
 KNOT_TLS_KEY=${KNOT_TLS_KEY}
 KNOT_PUBLIC_BASE_URL=${KNOT_PUBLIC_BASE_URL}
@@ -319,6 +321,36 @@ EOF
   chmod 600 "$KNOT_CONF/knotd.env"
 }
 
+install_cp_update_helper() {
+  [ "$(os_id)" = "linux" ] || return 0
+  is_root || return 0
+  mkdir -p /usr/local/lib/knot /etc/sudoers.d
+  cat > /usr/local/lib/knot/update-control-plane.sh <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+export GOFLAGS="-buildvcs=false"
+cd "${KNOT_DATA}/src"
+git -c safe.directory="${KNOT_DATA}/src" fetch --prune origin
+git -c safe.directory="${KNOT_DATA}/src" reset --hard origin/HEAD
+go build -o "${KNOT_PREFIX}/bin/knotd" ./cmd/knotd
+if command -v npm >/dev/null 2>&1; then
+  cd web
+  npm install --no-fund --no-audit
+  npm run build
+  rm -rf "${KNOT_DATA}/web"
+  mkdir -p "${KNOT_DATA}/web"
+  cp -R dist/. "${KNOT_DATA}/web/"
+fi
+systemctl restart knotd
+EOF
+  chmod 755 /usr/local/lib/knot/update-control-plane.sh
+  cat > /etc/sudoers.d/knot-update <<EOF
+knot ALL=(root) NOPASSWD: /usr/local/lib/knot/update-control-plane.sh
+EOF
+  chmod 440 /etc/sudoers.d/knot-update
+}
+
 write_agent_env() {
   umask 077
   cat > "$KNOT_CONF/knot-agent.env" <<EOF
@@ -327,6 +359,7 @@ KNOT_REGISTRATION_TOKEN=${KNOT_REGISTRATION_TOKEN}
 KNOT_DEVICE_NAME=${KNOT_DEVICE_NAME}
 KNOT_AGENT_DATA=${KNOT_DATA}/agent
 KNOT_STORAGE_DIR=${KNOT_STORAGE_DIR}
+KNOT_SRC_DIR=${KNOT_DATA}/src
 ${KNOT_TLS_INSECURE:+KNOT_TLS_INSECURE=${KNOT_TLS_INSECURE}}
 ${KNOT_TLS_CA:+KNOT_TLS_CA=${KNOT_TLS_CA}}
 EOF
@@ -708,6 +741,7 @@ install_main() {
   esac
 
   write_main_env
+  install_cp_update_helper
   open_firewall "$port"
   chown_data
 
